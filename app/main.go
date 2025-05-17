@@ -30,4 +30,5 @@ func main() {
 	if err = db.Ping(); err != nil {
 		log.Fatal(err)
 	}
+	log.Println("Successfully connected to the database!")
 }

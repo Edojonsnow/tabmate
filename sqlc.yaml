@@ -1,0 +1,24 @@
+# sqlc.yaml
+version: "2"
+sql:
+  - engine: "postgresql"
+    schema: "migrations"
+    queries: "internals/store/postgres/queries/*.sql"
+    # Configuration for Go code generation.
+    gen:
+      go:
+        package: "tablesclea"
+        # The output directory for the generated Go files.
+        out: "internals/store/postgres"
+        # The SQL driver package to use.
+        # For pgx/v5 (recommended for PostgreSQL):
+        sql_package: "pgx/v5"
+        # For standard library database/sql with pgx driver:
+        # sql_package: "database/sql"
+        emit_json_tags: true # Add json tags to generated structs (useful for API responses)
+        emit_prepared_queries: false
+        emit_interface: true # Generates a Querier interface, good for mocking/testing
+        emit_exact_table_names: true # If true, struct names match table names exactly. If false, sqlc might singularize.
+        emit_empty_slices: true # When a query returns no rows, return an empty slice instead of nil
+        # emit_db_tags: true # If you want db struct tags
+        # You can add more options here, see sqlc documentation.
