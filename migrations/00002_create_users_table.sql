@@ -1,6 +1,6 @@
--- migrations/00001_create_users_table.sql
+-- migrations/00002_create_users_table.sql
 
--- +migrate Up
+-- +goose Up
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(), -- PostgreSQL specific for auto-generated UUIDs
     cognito_sub VARCHAR(255) UNIQUE NOT NULL,
@@ -15,7 +15,7 @@ CREATE INDEX IF NOT EXISTS idx_users_cognito_sub ON users(cognito_sub);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 
--- +migrate Down
+-- +goose Down
 DROP INDEX IF EXISTS idx_users_email;
 DROP INDEX IF EXISTS idx_users_cognito_sub;
 DROP TABLE IF EXISTS users;

@@ -1,9 +1,9 @@
--- migrations/00002_create_tables_table.sql
+-- migrations/00003_create_tables_table.sql
 
--- +migrate Up
+-- +goose Up
 CREATE TABLE tables (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(), -- PostgreSQL specific for auto-generated UUIDs
-    created_by INTEGER NOT NULL REFERENCES users(id),
+    created_by UUID NOT NULL REFERENCES users(id),
     table_code VARCHAR(10) UNIQUE NOT NULL,   
     name VARCHAR(100), 
     restaurant_name VARCHAR(255),
@@ -16,10 +16,10 @@ CREATE TABLE tables (
 );
 
 CREATE INDEX IF NOT EXISTS idx_tables_table_code ON tables(table_code);
-CREATE INDEX IF NOT EXISTS idx_tables_created_by_user_id ON tables(created_by_user_id);
+CREATE INDEX IF NOT EXISTS idx_tables_created_by ON tables(created_by);
 CREATE INDEX IF NOT EXISTS idx_tables_status ON tables(status);
 
--- +migrate Down
+-- +goose Down
 DROP INDEX IF EXISTS idx_tables_status;
 DROP INDEX IF EXISTS idx_tables_created_by_user_id;
 DROP INDEX IF EXISTS idx_tables_table_code;

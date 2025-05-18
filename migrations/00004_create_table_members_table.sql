@@ -1,6 +1,6 @@
--- migrations/00003_create_table_members_table.sql
+-- migrations/00004_create_table_members_table.sql
 
--- +migrate Up
+-- +goose Up
 CREATE TABLE table_members (
     table_id UUID NOT NULL REFERENCES tables(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -14,7 +14,7 @@ CREATE INDEX IF NOT EXISTS idx_table_members_user_id ON table_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_table_members_table_id ON table_members(table_id);
 
 
--- +migrate Down
+-- +goose Down
 DROP INDEX IF EXISTS idx_table_members_user_id;
 DROP INDEX IF EXISTS idx_table_members_table_id;
 DROP TABLE IF EXISTS table_members;
