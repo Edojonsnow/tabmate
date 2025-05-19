@@ -11,23 +11,61 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const checkIfCognitoSubExists = `-- name: CheckIfCognitoSubExists :one
+SELECT EXISTS (
+    SELECT 1 FROM users
+    WHERE email = $1
+)
+`
+
+func (q *Queries) CheckIfCognitoSubExists(ctx context.Context, email string) (bool, error) {
+	row := q.db.QueryRow(ctx, checkIfCognitoSubExists, email)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const checkIfEmailExists = `-- name: CheckIfEmailExists :one
+SELECT EXISTS (
+    SELECT 1 FROM users
+    WHERE email = $1
+)
+`
+
+func (q *Queries) CheckIfEmailExists(ctx context.Context, email string) (bool, error) {
+	row := q.db.QueryRow(ctx, checkIfEmailExists, email)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (id, cognito_sub, email)
-VALUES ($1, $2, $3)
-RETURNING id, cognito_sub, email, created_at, updated_at
+INSERT INTO users (id, name, profile_picture_url, cognito_sub,  email)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, name, profile_picture_url, cognito_sub, email, created_at, updated_at
 `
 
 type CreateUserParams struct {
-	ID         pgtype.UUID `json:"id"`
-	CognitoSub string      `json:"cognito_sub"`
-	Email      string      `json:"email"`
+	ID                pgtype.UUID `json:"id"`
+	Name              pgtype.Text `json:"name"`
+	ProfilePictureUrl pgtype.Text `json:"profile_picture_url"`
+	CognitoSub        string      `json:"cognito_sub"`
+	Email             string      `json:"email"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (Users, error) {
-	row := q.db.QueryRow(ctx, createUser, arg.ID, arg.CognitoSub, arg.Email)
+	row := q.db.QueryRow(ctx, createUser,
+		arg.ID,
+		arg.Name,
+		arg.ProfilePictureUrl,
+		arg.CognitoSub,
+		arg.Email,
+	)
 	var i Users
 	err := row.Scan(
 		&i.ID,
+		&i.Name,
+		&i.ProfilePictureUrl,
 		&i.CognitoSub,
 		&i.Email,
 		&i.CreatedAt,
@@ -36,16 +74,78 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (Users, 
 	return i, err
 }
 
-const findUser = `-- name: FindUser :one
-SELECT id, cognito_sub, email, created_at, updated_at FROM users
-WHERE email = $1
+const deleteUserByCognitoSub = `-- name: DeleteUserByCognitoSub :exec
+DELETE FROM users
+WHERE cognito_sub = $1
 `
 
-func (q *Queries) FindUser(ctx context.Context, email string) (Users, error) {
-	row := q.db.QueryRow(ctx, findUser, email)
+func (q *Queries) DeleteUserByCognitoSub(ctx context.Context, cognitoSub string) error {
+	_, err := q.db.Exec(ctx, deleteUserByCognitoSub, cognitoSub)
+	return err
+}
+
+const deleteUserByID = `-- name: DeleteUserByID :exec
+DELETE FROM users
+WHERE id = $1
+`
+
+func (q *Queries) DeleteUserByID(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteUserByID, id)
+	return err
+}
+
+const getUserByCognitoSub = `-- name: GetUserByCognitoSub :one
+SELECT id, name, profile_picture_url, cognito_sub, email, created_at, updated_at FROM users
+WHERE cognito_sub = $1
+`
+
+func (q *Queries) GetUserByCognitoSub(ctx context.Context, cognitoSub string) (Users, error) {
+	row := q.db.QueryRow(ctx, getUserByCognitoSub, cognitoSub)
 	var i Users
 	err := row.Scan(
 		&i.ID,
+		&i.Name,
+		&i.ProfilePictureUrl,
+		&i.CognitoSub,
+		&i.Email,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT id, name, profile_picture_url, cognito_sub, email, created_at, updated_at FROM users
+WHERE email = $1
+`
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (Users, error) {
+	row := q.db.QueryRow(ctx, getUserByEmail, email)
+	var i Users
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.ProfilePictureUrl,
+		&i.CognitoSub,
+		&i.Email,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getUserByID = `-- name: GetUserByID :one
+SELECT id, name, profile_picture_url, cognito_sub, email, created_at, updated_at FROM users
+WHERE id = $1
+`
+
+func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (Users, error) {
+	row := q.db.QueryRow(ctx, getUserByID, id)
+	var i Users
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.ProfilePictureUrl,
 		&i.CognitoSub,
 		&i.Email,
 		&i.CreatedAt,
@@ -55,7 +155,7 @@ func (q *Queries) FindUser(ctx context.Context, email string) (Users, error) {
 }
 
 const listAllUsers = `-- name: ListAllUsers :many
-SELECT id, cognito_sub, email, created_at, updated_at FROM users
+SELECT id, name, profile_picture_url, cognito_sub, email, created_at, updated_at FROM users
 `
 
 func (q *Queries) ListAllUsers(ctx context.Context) ([]Users, error) {
@@ -69,6 +169,8 @@ func (q *Queries) ListAllUsers(ctx context.Context) ([]Users, error) {
 		var i Users
 		if err := rows.Scan(
 			&i.ID,
+			&i.Name,
+			&i.ProfilePictureUrl,
 			&i.CognitoSub,
 			&i.Email,
 			&i.CreatedAt,
@@ -82,4 +184,95 @@ func (q *Queries) ListAllUsers(ctx context.Context) ([]Users, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateUserEmail = `-- name: UpdateUserEmail :one
+UPDATE users
+SET
+    email = $2,
+    updated_at = NOW()
+WHERE
+    id = $1
+RETURNING id, name, profile_picture_url, cognito_sub, email, created_at, updated_at
+`
+
+type UpdateUserEmailParams struct {
+	ID    pgtype.UUID `json:"id"`
+	Email string      `json:"email"`
+}
+
+func (q *Queries) UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams) (Users, error) {
+	row := q.db.QueryRow(ctx, updateUserEmail, arg.ID, arg.Email)
+	var i Users
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.ProfilePictureUrl,
+		&i.CognitoSub,
+		&i.Email,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateUserName = `-- name: UpdateUserName :one
+UPDATE users
+SET
+    name = $2,
+    updated_at = NOW()
+WHERE
+    id = $1
+RETURNING id, name, profile_picture_url, cognito_sub, email, created_at, updated_at
+`
+
+type UpdateUserNameParams struct {
+	ID   pgtype.UUID `json:"id"`
+	Name pgtype.Text `json:"name"`
+}
+
+// Updates the name of a user given their ID and returns the updated user row.
+func (q *Queries) UpdateUserName(ctx context.Context, arg UpdateUserNameParams) (Users, error) {
+	row := q.db.QueryRow(ctx, updateUserName, arg.ID, arg.Name)
+	var i Users
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.ProfilePictureUrl,
+		&i.CognitoSub,
+		&i.Email,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateUserProfilePictureURL = `-- name: UpdateUserProfilePictureURL :one
+UPDATE users
+SET
+    profile_picture_url = $2,
+    updated_at = NOW()
+WHERE
+    id = $1
+RETURNING id, name, profile_picture_url, cognito_sub, email, created_at, updated_at
+`
+
+type UpdateUserProfilePictureURLParams struct {
+	ID                pgtype.UUID `json:"id"`
+	ProfilePictureUrl pgtype.Text `json:"profile_picture_url"`
+}
+
+func (q *Queries) UpdateUserProfilePictureURL(ctx context.Context, arg UpdateUserProfilePictureURLParams) (Users, error) {
+	row := q.db.QueryRow(ctx, updateUserProfilePictureURL, arg.ID, arg.ProfilePictureUrl)
+	var i Users
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.ProfilePictureUrl,
+		&i.CognitoSub,
+		&i.Email,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

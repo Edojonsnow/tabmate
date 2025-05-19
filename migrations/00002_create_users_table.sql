@@ -3,6 +3,8 @@
 -- +goose Up
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(), -- PostgreSQL specific for auto-generated UUIDs
+    name VARCHAR(100),                             -- Optional: User's display name
+    profile_picture_url TEXT, 
     cognito_sub VARCHAR(255) UNIQUE NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

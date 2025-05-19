@@ -6,13 +6,25 @@ package tablesclea
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
+	CheckIfCognitoSubExists(ctx context.Context, email string) (bool, error)
+	CheckIfEmailExists(ctx context.Context, email string) (bool, error)
 	CreateTable(ctx context.Context, arg CreateTableParams) (Tables, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (Users, error)
-	FindUser(ctx context.Context, email string) (Users, error)
+	DeleteUserByCognitoSub(ctx context.Context, cognitoSub string) error
+	DeleteUserByID(ctx context.Context, id pgtype.UUID) error
+	GetUserByCognitoSub(ctx context.Context, cognitoSub string) (Users, error)
+	GetUserByEmail(ctx context.Context, email string) (Users, error)
+	GetUserByID(ctx context.Context, id pgtype.UUID) (Users, error)
 	ListAllUsers(ctx context.Context) ([]Users, error)
+	UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams) (Users, error)
+	// Updates the name of a user given their ID and returns the updated user row.
+	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) (Users, error)
+	UpdateUserProfilePictureURL(ctx context.Context, arg UpdateUserProfilePictureURLParams) (Users, error)
 }
 
 var _ Querier = (*Queries)(nil)

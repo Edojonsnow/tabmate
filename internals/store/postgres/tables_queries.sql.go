@@ -19,7 +19,7 @@ RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, m
 
 type CreateTableParams struct {
 	ID             pgtype.UUID        `json:"id"`
-	CreatedBy      int32              `json:"created_by"`
+	CreatedBy      pgtype.UUID        `json:"created_by"`
 	TableCode      string             `json:"table_code"`
 	Name           pgtype.Text        `json:"name"`
 	RestaurantName pgtype.Text        `json:"restaurant_name"`

@@ -18,7 +18,7 @@ type TableMembers struct {
 
 type Tables struct {
 	ID             pgtype.UUID        `json:"id"`
-	CreatedBy      int32              `json:"created_by"`
+	CreatedBy      pgtype.UUID        `json:"created_by"`
 	TableCode      string             `json:"table_code"`
 	Name           pgtype.Text        `json:"name"`
 	RestaurantName pgtype.Text        `json:"restaurant_name"`
@@ -31,9 +31,11 @@ type Tables struct {
 }
 
 type Users struct {
-	ID         pgtype.UUID        `json:"id"`
-	CognitoSub string             `json:"cognito_sub"`
-	Email      string             `json:"email"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	ID                pgtype.UUID        `json:"id"`
+	Name              pgtype.Text        `json:"name"`
+	ProfilePictureUrl pgtype.Text        `json:"profile_picture_url"`
+	CognitoSub        string             `json:"cognito_sub"`
+	Email             string             `json:"email"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
