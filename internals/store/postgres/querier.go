@@ -11,16 +11,73 @@ import (
 )
 
 type Querier interface {
+	// Appends a new member_id to the members array if not already present.
+	AddMemberToTable(ctx context.Context, arg AddMemberToTableParams) (Tables, error)
+	// Adds a user to a table with an optional role, defaulting is_settled to false.
+	AddUserToTable(ctx context.Context, arg AddUserToTableParams) (TableMembers, error)
 	CheckIfCognitoSubExists(ctx context.Context, email string) (bool, error)
 	CheckIfEmailExists(ctx context.Context, email string) (bool, error)
+	CheckIfTableCodeExists(ctx context.Context, tableCode string) (bool, error)
+	// Checks if a specific user is a member of a specific table.
+	CheckIfUserIsMember(ctx context.Context, arg CheckIfUserIsMemberParams) (bool, error)
+	// Counts the number of members in a specific table.
+	CountMembersInTable(ctx context.Context, tableID pgtype.UUID) (int64, error)
+	CountOpenTables(ctx context.Context) (int64, error)
 	CreateTable(ctx context.Context, arg CreateTableParams) (Tables, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (Users, error)
+	DeleteTableByCode(ctx context.Context, tableCode string) error
+	DeleteTableByID(ctx context.Context, id pgtype.UUID) error
 	DeleteUserByCognitoSub(ctx context.Context, cognitoSub string) error
 	DeleteUserByID(ctx context.Context, id pgtype.UUID) error
+	// -- name: ListTablesByUserID :many
+	// -- Retrieves all membership records for a specific user_id.
+	// SELECT * FROM table_members
+	// WHERE user_id = $1
+	// ORDER BY joined_at DESC;
+	// Retrieves the role of a specific user in a specific table.
+	GetMemberRoleInTable(ctx context.Context, arg GetMemberRoleInTableParams) (string, error)
+	GetTableByCode(ctx context.Context, tableCode string) (Tables, error)
+	GetTableByID(ctx context.Context, id pgtype.UUID) (Tables, error)
+	// Retrieves a specific membership record by table_id and user_id.
+	GetTableMember(ctx context.Context, arg GetTableMemberParams) (TableMembers, error)
+	// Retrieves all membership details for a specific user across all tables.
+	GetTableMembershipDetailsForUser(ctx context.Context, userID pgtype.UUID) ([]TableMembers, error)
 	GetUserByCognitoSub(ctx context.Context, cognitoSub string) (Users, error)
 	GetUserByEmail(ctx context.Context, email string) (Users, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (Users, error)
 	ListAllUsers(ctx context.Context) ([]Users, error)
+	// Retrieves all membership records for a specific table_id.
+	ListMembersByTableID(ctx context.Context, tableID pgtype.UUID) ([]TableMembers, error)
+	// Retrieves all members of a specific table_id and include their user details.
+	ListMembersWithUserDetailsByTableID(ctx context.Context, tableID pgtype.UUID) ([]ListMembersWithUserDetailsByTableIDRow, error)
+	// Finds open tables where the given user ID is a member of the 'members' array.
+	// Requires a GIN index on 'members' for good performance on large tables.
+	ListOpenTablesForMember(ctx context.Context, members []int32) ([]Tables, error)
+	// Retrieves all members of a table_id where is_settled is true.
+	ListSettledMembersInTable(ctx context.Context, tableID pgtype.UUID) ([]TableMembers, error)
+	ListTablesByStatus(ctx context.Context, status string) ([]Tables, error)
+	ListTablesByUserID(ctx context.Context, createdBy pgtype.UUID) ([]Tables, error)
+	// For a specific user, list all tables they are a member of,
+	// along with their role and is_settled status in each, and table details.
+	ListTablesWithMembershipStatusForUser(ctx context.Context, userID pgtype.UUID) ([]ListTablesWithMembershipStatusForUserRow, error)
+	// Retrieves all members of a table_id where is_settled is false.
+	ListUnsettledMembersInTable(ctx context.Context, tableID pgtype.UUID) ([]TableMembers, error)
+	// Sets is_settled to true for all members of a specific table.
+	// Returns all updated member rows.
+	MarkAllMembersInTableAsSettled(ctx context.Context, tableID pgtype.UUID) ([]TableMembers, error)
+	// Removes a specific member_id from the members array.
+	RemoveMemberFromTable(ctx context.Context, arg RemoveMemberFromTableParams) (Tables, error)
+	// Removes a user from a specific table.
+	RemoveUserFromTable(ctx context.Context, arg RemoveUserFromTableParams) error
+	SearchTablesByNameOrRestaurant(ctx context.Context, dollar_1 pgtype.Text) ([]Tables, error)
+	// Updates the is_settled status for a user in a specific table.
+	SetMemberSettledStatus(ctx context.Context, arg SetMemberSettledStatusParams) (TableMembers, error)
+	// Updates the role of a user within a specific table.
+	UpdateMemberRoleInTable(ctx context.Context, arg UpdateMemberRoleInTableParams) (TableMembers, error)
+	UpdateTableMenuURL(ctx context.Context, arg UpdateTableMenuURLParams) (Tables, error)
+	UpdateTableName(ctx context.Context, arg UpdateTableNameParams) (Tables, error)
+	UpdateTableRestaurantName(ctx context.Context, arg UpdateTableRestaurantNameParams) (Tables, error)
+	UpdateTableStatus(ctx context.Context, arg UpdateTableStatusParams) (Tables, error)
 	UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams) (Users, error)
 	// Updates the name of a user given their ID and returns the updated user row.
 	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) (Users, error)

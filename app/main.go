@@ -1,12 +1,13 @@
 package main
 
 import (
-	"database/sql"
+	"context"
 	"log"
 	"os"
+	tablesclea "tabmate/internals/store/postgres"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
-	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -21,14 +22,22 @@ func main() {
 		log.Fatal("DB_SOURCE environment variable is not set")
 	}
 
-	db, err := sql.Open("postgres", connectionString)
+	conn, err := pgx.Connect(context.Background(), connectionString)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.Close()
+	defer conn.Close(context.Background())
 
-	if err = db.Ping(); err != nil {
+	if err = conn.Ping(context.Background()); err != nil {
 		log.Fatal(err)
 	}
 	log.Println("Successfully connected to the database!")
+
+	queries := tablesclea.New(conn)
+	router := setupRouter(queries)
+	
+	log.Println("Server starting on http://localhost:8080")
+	if err := router.Run(":8080"); err != nil {
+		log.Fatal("Failed to start server:", err)
+	}
 }

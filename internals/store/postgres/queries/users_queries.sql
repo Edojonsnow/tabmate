@@ -1,6 +1,6 @@
 -- name: CreateUser :one
-INSERT INTO users (id, name, profile_picture_url, cognito_sub,  email)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO users (name, profile_picture_url, cognito_sub,  email)
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: GetUserByEmail :one

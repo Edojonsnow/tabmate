@@ -40,13 +40,12 @@ func (q *Queries) CheckIfEmailExists(ctx context.Context, email string) (bool, e
 }
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (id, name, profile_picture_url, cognito_sub,  email)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO users (name, profile_picture_url, cognito_sub,  email)
+VALUES ($1, $2, $3, $4)
 RETURNING id, name, profile_picture_url, cognito_sub, email, created_at, updated_at
 `
 
 type CreateUserParams struct {
-	ID                pgtype.UUID `json:"id"`
 	Name              pgtype.Text `json:"name"`
 	ProfilePictureUrl pgtype.Text `json:"profile_picture_url"`
 	CognitoSub        string      `json:"cognito_sub"`
@@ -55,7 +54,6 @@ type CreateUserParams struct {
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (Users, error) {
 	row := q.db.QueryRow(ctx, createUser,
-		arg.ID,
 		arg.Name,
 		arg.ProfilePictureUrl,
 		arg.CognitoSub,
