@@ -1,0 +1,86 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Users - Tabmate</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+      <div class="max-w-4xl mx-auto">
+        <div class="flex justify-between items-center mb-6">
+          <h1 class="text-2xl font-bold text-gray-800">Users</h1>
+          <a href="/" class="text-blue-600 hover:text-blue-800"
+            >← Back to Home</a
+          >
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Username
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Email
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Status
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Created
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              {{range .users}}
+              <tr>
+                <td
+                  class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
+                >
+                  {{.Username}}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{range .Attributes}} {{if eq .Name "email"}} {{.Value}}
+                  {{end}} {{end}}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{if eq .UserStatus "CONFIRMED"}}
+                  <span
+                    class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full"
+                    >Confirmed</span
+                  >
+                  {{else if eq .UserStatus "UNCONFIRMED"}}
+                  <span
+                    class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full"
+                    >Unconfirmed</span
+                  >
+                  {{else}}
+                  <span
+                    class="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full"
+                    >{{.UserStatus}}</span
+                  >
+                  {{end}}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{.UserCreateDate.Format "Jan 02, 2006 15:04:05"}}
+                </td>
+              </tr>
+              {{end}}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </body>
+</html> -->

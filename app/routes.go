@@ -11,6 +11,9 @@ import (
 func setupRouter(queries tablesclea.Querier) *gin.Engine {
 	router := gin.Default()
 	
+	// Load HTML templates
+	router.LoadHTMLGlob("app/templates/*")
+	
 	// Add logging middleware
 	router.Use(gin.Logger())
 	
@@ -19,14 +22,13 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 		log.Printf("Request: %s %s", c.Request.Method, c.Request.URL.Path)
 	})
 	
-	router.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "pong",
-		})
-	})
-
+	// Public routes
+	router.GET("/", controllers.HandleHome)
+	router.GET("/login", controllers.HandleLogin)
+	// router.GET("/callback", controllers.HandleCallback)
+	// router.GET("/logout", controllers.HandleLogout)
 	router.POST("/api/signup", controllers.CreateUser(queries))
-	
+
 	// Print all registered routes
 	routes := router.Routes()
 	log.Println("Registered routes:")
