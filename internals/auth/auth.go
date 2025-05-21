@@ -132,35 +132,6 @@ func GetUserInfo(ctx context.Context, idToken string) (*UserInfo, error) {
     }, nil
 }
 
-// GetUserInfoFromAccessToken retrieves user information using the access token
-func GetUserInfoFromAccessToken(ctx context.Context, accessToken string) (*UserInfo, error) {
-    userInfo, err := provider.UserInfo(ctx, oauth2.StaticTokenSource(&oauth2.Token{AccessToken: accessToken}))
-    if err != nil {
-        return nil, fmt.Errorf("failed to get user info: %v", err)
-    }
-
-    var claims struct {
-        Sub               string `json:"sub"`
-        Email            string `json:"email"`
-        EmailVerified    bool   `json:"email_verified"`
-        Name             string `json:"name"`
-        PhoneNumber      string `json:"phone_number"`
-        PhoneVerified    bool   `json:"phone_number_verified"`
-    }
-
-    if err := userInfo.Claims(&claims); err != nil {
-        return nil, fmt.Errorf("failed to parse claims: %v", err)
-    }
-
-    return &UserInfo{
-        Sub:           claims.Sub,
-        Email:         claims.Email,
-        EmailVerified: claims.EmailVerified,
-        Name:          claims.Name,
-        PhoneNumber:   claims.PhoneNumber,
-        PhoneVerified: claims.PhoneVerified,
-    }, nil
-}
 
 // ListUsers retrieves all users from the Cognito User Pool
 func ListUsers(ctx context.Context) ([]types.UserType, error) {
@@ -195,4 +166,19 @@ func ListUsers(ctx context.Context) ([]types.UserType, error) {
 	}
 
 	return allUsers, nil
+}
+
+// GetCognitoClient returns the Cognito client instance
+func GetCognitoClient() *cognitoidentityprovider.Client {
+	return cognitoClient
+}
+
+// GetClientID returns the Cognito client ID
+func GetClientID() string {
+	return clientID
+}
+
+// GetClientSecret returns the Cognito client secret
+func GetClientSecret() string {
+	return clientSecret
 }

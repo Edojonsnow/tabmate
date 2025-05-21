@@ -24,9 +24,18 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 	
 	// Public routes
 	router.GET("/", controllers.HandleHome)
-	router.GET("/login", controllers.HandleLogin)
-	// router.GET("/callback", controllers.HandleCallback)
-	// router.GET("/logout", controllers.HandleLogout)
+	router.GET("/login", controllers.ShowLoginForm)
+	router.POST("/login", controllers.HandleLogin)
+	router.GET("/signup", controllers.ShowSignupForm)
+	router.POST("/signup", controllers.HandleSignup)
+	router.GET("/confirm-signup", controllers.HandleConfirmSignup)
+	router.POST("/confirm-signup", controllers.HandleConfirmSignup)
+	router.GET("/forgot-password", controllers.HandleForgotPassword)
+	router.POST("/forgot-password", controllers.HandleForgotPasswordSubmit)
+	router.GET("/reset-password", controllers.HandleResetPassword)
+	router.POST("/reset-password", controllers.HandleResetPassword)
+	router.GET("/callback", controllers.HandleCallback)
+	router.GET("/users", controllers.HandleListUsers)
 	router.POST("/api/signup", controllers.CreateUser(queries))
 
 	// Print all registered routes
