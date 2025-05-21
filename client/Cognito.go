@@ -14,14 +14,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider/types"
 )
 
-type CognitoActions struct {
-	CognitoClient *cognitoidentityprovider.Client
-}
-
 var (
 	cognitoclientId = auth.GetClientID()
 	clientSecret    = auth.GetClientSecret()
 )
+
+type CognitoActions struct {
+	CognitoClient *cognitoidentityprovider.Client
+}
 
 // computeSecretHash computes the SECRET_HASH for Cognito operations
 func computeSecretHash(username string) string {
@@ -57,6 +57,19 @@ func (actor CognitoActions) SignUp(ctx context.Context, userName string, passwor
 		confirmed = output.UserConfirmed
 	}
 	return confirmed, err
+}
+
+func (actor CognitoActions) ConfirmSignUp(ctx context.Context, username string, code string) error {
+	_, err := actor.CognitoClient.ConfirmSignUp(ctx, &cognitoidentityprovider.ConfirmSignUpInput{
+		ClientId:         aws.String(cognitoclientId),
+		ConfirmationCode: aws.String(code),
+		Username:         aws.String(username),
+		SecretHash:       aws.String(computeSecretHash(username)),
+	})
+	if err != nil {
+		log.Printf("Couldn't confirm user %v. Here's why: %v\n", username, err)
+	}
+	return err
 }
 
 func (actor CognitoActions) SignIn(ctx context.Context, userName string, password string) (*types.AuthenticationResultType, error) {

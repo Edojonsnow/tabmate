@@ -27,6 +27,7 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 	router.GET("/login", controllers.ShowLoginForm)
 	router.POST("/login", controllers.HandleLogin)
 	router.GET("/signup", controllers.ShowSignupForm)
+	router.GET("/profile", controllers.ShowProfile)
 	router.POST("/signup", controllers.HandleSignup)
 	router.GET("/confirm-signup", controllers.HandleConfirmSignup)
 	router.POST("/confirm-signup", controllers.HandleConfirmSignup)

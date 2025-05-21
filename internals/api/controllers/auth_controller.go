@@ -14,7 +14,7 @@ import (
 var (
 	cognitoClient = auth.GetCognitoClient()
 	clientID = auth.GetClientID()
-
+	
 	actions = client.CognitoActions{
 		CognitoClient: cognitoClient,
 	}
@@ -38,6 +38,12 @@ func ShowLoginForm(c *gin.Context) {
 func ShowSignupForm(c *gin.Context) {
 	c.HTML(http.StatusOK, "signup.html", gin.H{
 		"title": "Sign Up",
+	})
+}
+
+func ShowProfile(c *gin.Context) {
+	c.HTML(http.StatusOK, "profile.html", gin.H{
+		"title": "Profile",
 	})
 }
 
@@ -118,8 +124,16 @@ func HandleConfirmSignup(c *gin.Context) {
 		return
 	}
 
-	// TODO: Implement confirmation code verification
-	// For now, redirect to login
+	// Confirm the signup with Cognito
+	err := actions.ConfirmSignUp(c.Request.Context(), username, code)
+	if err != nil {
+		c.HTML(http.StatusBadRequest, "confirm_signup.html", gin.H{
+			"error": fmt.Sprintf("Failed to confirm signup: %v", err),
+		})
+		return
+	}
+
+	// Redirect to login after successful confirmation
 	c.Redirect(http.StatusFound, "/login")
 }
 
