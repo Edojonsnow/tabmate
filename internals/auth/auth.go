@@ -182,3 +182,28 @@ func GetClientID() string {
 func GetClientSecret() string {
 	return clientSecret
 }
+
+// TokenClaims represents the claims in the JWT token
+type TokenClaims struct {
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	jwt.StandardClaims
+}
+
+// VerifyToken verifies and parses a JWT token
+func VerifyToken(tokenString string) (*TokenClaims, error) {
+	claims := &TokenClaims{}
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(clientSecret), nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !token.Valid {
+		return nil, fmt.Errorf("invalid token")
+	}
+
+	return claims, nil
+}

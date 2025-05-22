@@ -1,34 +1,40 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ .title }}</title>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 20px;
-        text-align: center;
-      }
-      h1 {
-        color: #333;
-        margin-bottom: 30px;
-      }
-      a {
-        display: inline-block;
-        padding: 10px 20px;
-        background-color: #007bff;
-        color: white;
-        text-decoration: none;
-        border-radius: 5px;
-        transition: background-color 0.3s;
-      }
-      a:hover {
-        background-color: #0056b3;
-      }
-    </style>
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
   </head>
-  <body>
-    <h1>YOU ARE NOW LOGGED IN</h1>
+  <body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+      <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-8">
+        <h1 class="text-2xl font-bold mb-6 text-gray-800">Profile</h1>
+
+        <div class="space-y-4">
+          <div class="border-b pb-4">
+            <h2 class="text-sm font-medium text-gray-500">Name</h2>
+            <p class="mt-1 text-lg text-gray-900">{{ .username }}</p>
+          </div>
+
+          <div class="border-b pb-4">
+            <h2 class="text-sm font-medium text-gray-500">Email</h2>
+            <p class="mt-1 text-lg text-gray-900">{{ .email }}</p>
+          </div>
+        </div>
+
+        <div class="mt-8">
+          <a
+            href="/logout"
+            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+          >
+            Logout
+          </a>
+        </div>
+      </div>
+    </div>
   </body>
 </html>

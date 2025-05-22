@@ -34,19 +34,6 @@ func ShowLoginForm(c *gin.Context) {
 	})
 }
 
-// ShowSignupForm renders the signup form
-func ShowSignupForm(c *gin.Context) {
-	c.HTML(http.StatusOK, "signup.html", gin.H{
-		"title": "Sign Up",
-	})
-}
-
-func ShowProfile(c *gin.Context) {
-	c.HTML(http.StatusOK, "profile.html", gin.H{
-		"title": "Profile",
-	})
-}
-
 // HandleLogin processes the login form submission
 func HandleLogin(c *gin.Context) {
 	username := c.PostForm("username")
@@ -59,10 +46,8 @@ func HandleLogin(c *gin.Context) {
 		return
 	}
 
-
-
 	// Authenticate with Cognito
-	_, err := actions.SignIn(c.Request.Context(), username, password)
+	authResult, err := actions.SignIn(c.Request.Context(), username, password)
 	if err != nil {
 		c.HTML(http.StatusUnauthorized, "login.html", gin.H{
 			"error": "Invalid username or password",
@@ -70,10 +55,36 @@ func HandleLogin(c *gin.Context) {
 		return
 	}
 
-	// Store tokens in session/cookies
-	// TODO: Implement secure token storage
-	// For now, we'll just redirect to the user profile
+	// Store the ID token in a cookie
+	c.SetCookie("auth_token", *authResult.IdToken, 3600, "/", "", false, true)
+
+	// Redirect to profile page
 	c.Redirect(http.StatusFound, "/profile")
+}
+
+// ShowSignupForm renders the signup form
+func ShowSignupForm(c *gin.Context) {
+	c.HTML(http.StatusOK, "signup.html", gin.H{
+		"title": "Sign Up",
+	})
+}
+
+// func ShowProfile(c *gin.Context) {
+// 	c.HTML(http.StatusOK, "profile.html", gin.H{
+// 		"title": "Profile",
+// 	})
+// }
+
+// HandleProfile displays the user's profile
+func HandleProfile(c *gin.Context) {
+	username, _ := c.Get("username")
+	email, _ := c.Get("email")
+
+	c.HTML(http.StatusOK, "profile.html", gin.H{
+		"title":    "Profile",
+		"username": username,
+		"email":    email,
+	})
 }
 
 // HandleSignup processes the signup form submission
@@ -266,3 +277,13 @@ func HandleListUsers(c *gin.Context) {
 		"users": users,
 	})
 }
+
+// HandleLogout handles user logout
+func HandleLogout(c *gin.Context) {
+	// Clear the auth token cookie
+	c.SetCookie("auth_token", "", -1, "/", "", false, true)
+	
+	// Redirect to home page
+	c.Redirect(http.StatusFound, "/")
+}
+

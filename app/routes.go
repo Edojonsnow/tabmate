@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"tabmate/internals/api/controllers"
+	"tabmate/internals/api/middleware"
 	tablesclea "tabmate/internals/store/postgres"
 
 	"github.com/gin-gonic/gin"
@@ -21,13 +22,21 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 	router.Use(func(c *gin.Context) {
 		log.Printf("Request: %s %s", c.Request.Method, c.Request.URL.Path)
 	})
+
+	// Protected routes
+	authorized := router.Group("/")
+	authorized.Use(middleware.AuthMiddleware())
+	{
+		authorized.GET("/profile", controllers.HandleProfile)
+	}
+	
 	
 	// Public routes
 	router.GET("/", controllers.HandleHome)
-	router.GET("/login", controllers.ShowLoginForm)
+	router.GET("/login", middleware.RedirectIfAuthenticated(), controllers.ShowLoginForm)
 	router.POST("/login", controllers.HandleLogin)
 	router.GET("/signup", controllers.ShowSignupForm)
-	router.GET("/profile", controllers.ShowProfile)
+	// router.GET("/profile", controllers.ShowProfile)
 	router.POST("/signup", controllers.HandleSignup)
 	router.GET("/confirm-signup", controllers.HandleConfirmSignup)
 	router.POST("/confirm-signup", controllers.HandleConfirmSignup)
@@ -38,6 +47,8 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 	router.GET("/callback", controllers.HandleCallback)
 	router.GET("/users", controllers.HandleListUsers)
 	router.POST("/api/signup", controllers.CreateUser(queries))
+	router.GET("/logout", controllers.HandleLogout)
+
 
 	// Print all registered routes
 	routes := router.Routes()
