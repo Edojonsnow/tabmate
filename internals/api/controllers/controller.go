@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"tabmate/client"
+	cognito "tabmate/cognito"
 	"tabmate/internals/auth"
 
 	"github.com/gin-gonic/gin"
@@ -14,7 +14,7 @@ var (
 	cognitoClient = auth.GetCognitoClient()
 	clientID = auth.GetClientID()
 	
-	actions = client.CognitoActions{
+	actions = cognito.CognitoActions{
 		CognitoClient: cognitoClient,
 	}
 )

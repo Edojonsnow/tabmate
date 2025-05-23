@@ -26,14 +26,55 @@
           </div>
         </div>
 
-        <div class="mt-8">
-          <a
-            href="/logout"
-            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-          >
-            Logout
-          </a>
+        <div class="mt-8 space-y-4">
+          <div class="flex items-center space-x-4">
+            <input
+              type="text"
+              id="tableCode"
+              placeholder="Enter table code"
+              class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              onclick="joinTable()"
+              class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-500 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            >
+              Join Table
+            </button>
+          </div>
+
+          <div class="flex space-x-4">
+            <a
+              href="/ws-test"
+              class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-500 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              Create Table
+            </a>
+            <a
+              href="/logout"
+              class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              Logout
+            </a>
+          </div>
         </div>
+
+        <script>
+          function joinTable() {
+            const code = document.getElementById("tableCode").value.trim();
+            if (code) {
+              window.location.href = `/ws-test?code=${code}`;
+            }
+          }
+
+          // Allow joining table with Enter key
+          document
+            .getElementById("tableCode")
+            .addEventListener("keypress", function (e) {
+              if (e.key === "Enter") {
+                joinTable();
+              }
+            });
+        </script>
       </div>
     </div>
   </body>

@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"tabmate/internals/api/controllers"
 	"tabmate/internals/api/middleware"
 	tablesclea "tabmate/internals/store/postgres"
@@ -28,6 +29,9 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 	authorized.Use(middleware.AuthMiddleware(queries))
 	{
 		authorized.GET("/profile", controllers.HandleProfile)
+		authorized.GET("/ws-test", func(c *gin.Context) {
+			c.HTML(http.StatusOK, "websocket_test.html", nil)
+		})
 	}
 	
 	
@@ -36,6 +40,7 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 	router.GET("/login", middleware.RedirectIfAuthenticated(), controllers.ShowLoginForm)
 	router.POST("/login", controllers.HandleLogin)
 	router.GET("/signup", controllers.ShowSignupForm)
+
 	// router.GET("/profile", controllers.ShowProfile)
 	router.POST("/signup", controllers.HandleSignup)
 	router.GET("/confirm-signup", controllers.HandleConfirmSignup)
@@ -47,6 +52,21 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 	router.GET("/callback", controllers.HandleCallback)
 	router.GET("/users", controllers.HandleListUsers)
 	router.GET("/logout", controllers.HandleLogout)
+
+	router.GET("/ws/table/:code", func(c *gin.Context) {
+		code := c.Param("code")
+		table := controllers.GetOrCreateTable(code)
+		
+		// Get the underlying http.ResponseWriter and http.Request
+		w := c.Writer
+		r := c.Request
+		
+		// Set the required headers for WebSocket upgrade
+		w.Header().Set("Upgrade", "websocket")
+		w.Header().Set("Connection", "Upgrade")
+		
+		controllers.ServeWs(table, w, r)
+	})
 
 	// API ROUTES 
 	router.POST("/api/create-user", controllers.CreateUser(queries))

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>WebSocket Test</title>
+    <style>
+      #messages {
+        height: 300px;
+        border: 1px solid #ccc;
+        overflow-y: auto;
+        margin-bottom: 10px;
+        padding: 10px;
+      }
+      .message {
+        margin: 5px 0;
+        padding: 5px;
+        background: #f0f0f0;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>WebSocket Test</h2>
+    <div>Table Code: <span id="tableCode"></span></div>
+    <div id="messages"></div>
+    <input type="text" id="messageInput" placeholder="Type a message..." />
+    <button onclick="sendMessage()">Send</button>
+
+    <script>
+      // Get table code from URL or generate a new one
+      const urlParams = new URLSearchParams(window.location.search);
+      let tableCode = urlParams.get("code");
+
+      if (!tableCode) {
+        // Generate a random 6-character code
+        tableCode = Math.random().toString(36).substring(2, 8);
+        // Update URL with the new code
+        window.history.replaceState({}, "", `?code=${tableCode}`);
+      }
+
+      // Display the table code
+      document.getElementById("tableCode").textContent = tableCode;
+
+      // Connect to WebSocket
+      const ws = new WebSocket(
+        `ws://${window.location.host}/ws/table/${tableCode}`
+      );
+
+      ws.onopen = function () {
+        addMessage("Connected to WebSocket");
+      };
+
+      ws.onmessage = function (event) {
+        addMessage(`Received: ${event.data}`);
+      };
+
+      ws.onclose = function () {
+        addMessage("Disconnected from WebSocket");
+      };
+
+      ws.onerror = function (error) {
+        addMessage(`Error: ${error.message}`);
+      };
+
+      function addMessage(text) {
+        const messages = document.getElementById("messages");
+        const message = document.createElement("div");
+        message.className = "message";
+        message.textContent = text;
+        messages.appendChild(message);
+        messages.scrollTop = messages.scrollHeight;
+      }
+
+      function sendMessage() {
+        const input = document.getElementById("messageInput");
+        const message = input.value;
+        if (message) {
+          ws.send(message);
+          addMessage(`Sent: ${message}`);
+          input.value = "";
+        }
+      }
+
+      // Allow sending message with Enter key
+      document
+        .getElementById("messageInput")
+        .addEventListener("keypress", function (e) {
+          if (e.key === "Enter") {
+            sendMessage();
+          }
+        });
+    </script>
+  </body>
+</html>
