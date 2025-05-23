@@ -25,7 +25,8 @@
       {{ end }}
 
       <p class="text-gray-600 mb-4">
-        Please check your email ({{ .email }}) for the confirmation code.
+        {{ .username }}, please check your email ({{ .email }}) for the
+        confirmation code.
       </p>
 
       <form action="/confirm-signup" method="POST" class="space-y-4">

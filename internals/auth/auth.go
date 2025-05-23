@@ -86,14 +86,7 @@ func init() {
         log.Fatalf("Failed to create OIDC provider: %v", err)
     }
 
-    // Set up OAuth2 config
-    OAuth2Config = oauth2.Config{
-        ClientID:     clientID,
-        ClientSecret: clientSecret,
-        RedirectURL:  redirectURL,
-        Endpoint:     provider.Endpoint(),
-        Scopes:       []string{oidc.ScopeOpenID, "phone", "openid", "email", "profile"},
-    }
+
 
     log.Println("OAuth2 configuration initialized successfully")
 }

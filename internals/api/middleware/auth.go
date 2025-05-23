@@ -3,13 +3,16 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"strings"
 	"tabmate/internals/auth"
+	tablesclea "tabmate/internals/store/postgres"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // AuthMiddleware checks if the user is authenticated
-func AuthMiddleware() gin.HandlerFunc {
+func AuthMiddleware(queries tablesclea.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get the token from the cookie
 		token, err := c.Cookie("auth_token")
@@ -22,6 +25,19 @@ func AuthMiddleware() gin.HandlerFunc {
 		// Verify the token using OIDC provider
 		userInfo, err := auth.GetUserInfo(context.Background(), token)
 		if err != nil {
+			c.Redirect(http.StatusFound, "/login")
+			c.Abort()
+			return
+		}
+
+		// Try to create user if they don't exist
+		_, err = queries.CreateUser(c, tablesclea.CreateUserParams{
+			Name:            pgtype.Text{String: userInfo.Name, Valid: true},
+			CognitoSub:      userInfo.Sub,
+			Email:           userInfo.Email,
+		})
+		// Ignore error if user already exists
+		if err != nil && !strings.Contains(err.Error(), "duplicate key") {
 			c.Redirect(http.StatusFound, "/login")
 			c.Abort()
 			return

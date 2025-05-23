@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"tabmate/client"
 	"tabmate/internals/auth"
-	tablesclea "tabmate/internals/store/postgres"
 
 	"github.com/gin-gonic/gin"
 )
@@ -103,14 +102,13 @@ func HandleSignup(c *gin.Context) {
 	}
 
 	// Sign up with Cognito
-	confirmed, err := actions.SignUp(c.Request.Context(), username, password, email, phone)
+	confirmed , err := actions.SignUp(c.Request.Context(), username, password, email, phone)
 	if err != nil {
 		c.HTML(http.StatusBadRequest, "signup.html", gin.H{
 			"error": fmt.Sprintf("Failed to create account: %v", err),
 		})
 		return
 	}
-
 	if confirmed {
 		// If user is automatically confirmed, redirect to login
 		c.Redirect(http.StatusFound, "/login")
@@ -126,6 +124,7 @@ func HandleSignup(c *gin.Context) {
 // HandleConfirmSignup processes the signup confirmation
 func HandleConfirmSignup(c *gin.Context) {
 	username := c.PostForm("username")
+	// email := c.PostForm("email")
 	code := c.PostForm("code")
 
 	if username == "" || code == "" {
@@ -143,6 +142,8 @@ func HandleConfirmSignup(c *gin.Context) {
 		})
 		return
 	}
+
+
 
 	// Redirect to login after successful confirmation
 	c.Redirect(http.StatusFound, "/login")
@@ -239,31 +240,7 @@ func HandleCallback(c *gin.Context) {
 	})
 }
 
-// CreateUser handles user creation
-func CreateUser(queries tablesclea.Querier) gin.HandlerFunc {
-	return func(c *gin.Context) {
-			var req tablesclea.CreateUserParams
-	
-			if err := c.BindJSON(&req); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-				return
-			}
-	
-		user, err := queries.CreateUser(c, tablesclea.CreateUserParams{
-			Name:            req.Name,
-			ProfilePictureUrl: req.ProfilePictureUrl,
-			CognitoSub:        req.CognitoSub,
-			Email:             req.Email,
-			})
-	
-			if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Could not create user."})
-			return
-			}
-	
-		c.JSON(http.StatusCreated, user)
-	}
-}
+
 
 // HandleListUsers displays all users from the Cognito User Pool
 func HandleListUsers(c *gin.Context) {

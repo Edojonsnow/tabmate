@@ -25,7 +25,7 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 
 	// Protected routes
 	authorized := router.Group("/")
-	authorized.Use(middleware.AuthMiddleware())
+	authorized.Use(middleware.AuthMiddleware(queries))
 	{
 		authorized.GET("/profile", controllers.HandleProfile)
 	}
@@ -46,8 +46,10 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 	router.POST("/reset-password", controllers.HandleResetPassword)
 	router.GET("/callback", controllers.HandleCallback)
 	router.GET("/users", controllers.HandleListUsers)
-	router.POST("/api/signup", controllers.CreateUser(queries))
 	router.GET("/logout", controllers.HandleLogout)
+
+	// API ROUTES 
+	router.POST("/api/create-user", controllers.CreateUser(queries))
 
 
 	// Print all registered routes
