@@ -129,6 +129,30 @@ func (q *Queries) DeleteTableByID(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
+const getAllTableCodes = `-- name: GetAllTableCodes :many
+SELECT table_code FROM tables
+`
+
+func (q *Queries) GetAllTableCodes(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, getAllTableCodes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var table_code string
+		if err := rows.Scan(&table_code); err != nil {
+			return nil, err
+		}
+		items = append(items, table_code)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getTableByCode = `-- name: GetTableByCode :one
 SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, members, created_at, updated_at, closed_at FROM tables
 WHERE table_code = $1

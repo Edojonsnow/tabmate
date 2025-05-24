@@ -52,16 +52,22 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 	router.GET("/callback", controllers.HandleCallback)
 	router.GET("/users", controllers.HandleListUsers)
 	router.GET("/logout", controllers.HandleLogout)
-
 	router.GET("/ws/table/:code", func(c *gin.Context) {
 		code := c.Param("code")
-		table := controllers.GetOrCreateTable(code)
+		table := controllers.GetTable(code)
+		
+		if table == nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Table not found",
+			})
+			return
+		}
 		
 		// Get the underlying http.ResponseWriter and http.Request
 		w := c.Writer
 		r := c.Request
 		
-		// Set the required headers for WebSocket upgrade
+		// Set headers for WebSocket upgrade
 		w.Header().Set("Upgrade", "websocket")
 		w.Header().Set("Connection", "Upgrade")
 		
@@ -71,6 +77,43 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 	// API ROUTES 
 	router.POST("/api/create-user", controllers.CreateUser(queries))
 
+	router.POST("/api/create-table", func(c *gin.Context) {
+		table := controllers.CreateTable()
+		// Redirect to the table's URL with the generated code
+		c.Redirect(http.StatusFound, "/ws/table/"+table.Code)
+	})
+
+	// Check if table exists
+	router.GET("/api/tables/:code", func(c *gin.Context) {
+		code := c.Param("code")
+		table := controllers.GetTable(code)
+		if table == nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Table not found",
+				"exists": false,
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"exists": true,
+			"code": code,
+		})
+	})
+
+	// Table view route
+	// router.GET("/table/:code", func(c *gin.Context) {
+	// 	code := c.Param("code")
+	// 	table := controllers.GetTable(code)
+	// 	if table == nil {
+	// 		c.HTML(http.StatusNotFound, "error.html", gin.H{
+	// 			"error": "Table not found",
+	// 		})
+	// 		return
+	// 	}
+	// 	c.HTML(http.StatusOK, "table.html", gin.H{
+	// 		"tableCode": code,
+	// 	})
+	// })
 
 	// Print all registered routes
 	routes := router.Routes()

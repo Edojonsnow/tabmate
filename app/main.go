@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"tabmate/internals/api/controllers"
 	tablesclea "tabmate/internals/store/postgres"
 
 	"github.com/jackc/pgx/v5"
@@ -35,7 +36,12 @@ func main() {
 
 	queries := tablesclea.New(conn)
 	router := setupRouter(queries)
-	
+
+	err = controllers.InitializeActiveTables(context.Background(), queries)
+	if err != nil {
+		log.Fatalf("Failed to initialize active tables: %v", err)
+	}
+		
 	log.Println("Server starting on http://localhost:8080")
 	if err := router.Run(":8080"); err != nil {
 		log.Fatal("Failed to start server:", err)

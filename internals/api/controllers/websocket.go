@@ -35,6 +35,7 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true // Be more restrictive in production
 	},
+	EnableCompression: true,
 }
 
 type TableClient struct {

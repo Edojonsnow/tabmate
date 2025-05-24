@@ -39,6 +39,10 @@ WHERE
     AND status = 'open' 
 ORDER BY created_at DESC;
 
+-- name: GetAllTableCodes :many
+SELECT table_code FROM tables;
+
+
 -- name: UpdateTableName :one
 UPDATE tables
 SET name = $2, updated_at = NOW()

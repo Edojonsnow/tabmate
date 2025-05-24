@@ -36,10 +36,8 @@
         window.history.replaceState({}, "", `?code=${tableCode}`);
       }
 
-      // Display the table code
       document.getElementById("tableCode").textContent = tableCode;
 
-      // Connect to WebSocket
       const ws = new WebSocket(
         `ws://${window.location.host}/ws/table/${tableCode}`
       );

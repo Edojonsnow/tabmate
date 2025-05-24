@@ -43,12 +43,12 @@
           </div>
 
           <div class="flex space-x-4">
-            <a
-              href="/ws-test"
+            <button
+              onclick="createTable()"
               class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-500 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Create Table
-            </a>
+            </button>
             <a
               href="/logout"
               class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
@@ -58,11 +58,62 @@
           </div>
         </div>
 
+        <div id="tableError" class="text-red-500 mt-4 hidden">
+          Error message will appear here.
+        </div>
+
         <script>
-          function joinTable() {
+          async function joinTable() {
             const code = document.getElementById("tableCode").value.trim();
-            if (code) {
-              window.location.href = `/ws-test?code=${code}`;
+            if (!code) return;
+
+            try {
+              const response = await fetch(`/api/tables/${code}`);
+              const data = await response.json();
+
+              if (data.exists) {
+                window.location.href = `/ws/table/${code}`;
+              } else {
+                // Show error message
+                const errorDiv = document.getElementById("tableError");
+                if (errorDiv) {
+                  errorDiv.textContent =
+                    "Table not found. Please check the code and try again.";
+                  errorDiv.style.display = "block";
+                }
+              }
+            } catch (error) {
+              console.error("Error checking table:", error);
+              const errorDiv = document.getElementById("tableError");
+              if (errorDiv) {
+                errorDiv.textContent =
+                  "Error checking table. Please try again.";
+                errorDiv.style.display = "block";
+              }
+            }
+          }
+
+          async function createTable() {
+            try {
+              const response = await fetch("/api/create-table", {
+                method: "POST",
+                redirect: "follow",
+              });
+
+              if (response.redirected) {
+                // Get the table code from the redirected URL
+                const tableCode = response.url.split("/").pop();
+                // Redirect to the WebSocket test page with the table code
+                window.location.href = `/ws-test?code=${tableCode}`;
+              }
+            } catch (error) {
+              console.error("Error creating table:", error);
+              const errorDiv = document.getElementById("tableError");
+              if (errorDiv) {
+                errorDiv.textContent =
+                  "Error creating table. Please try again.";
+                errorDiv.style.display = "block";
+              }
             }
           }
 
@@ -72,6 +123,16 @@
             .addEventListener("keypress", function (e) {
               if (e.key === "Enter") {
                 joinTable();
+              }
+            });
+
+          // Clear error message when user starts typing
+          document
+            .getElementById("tableCode")
+            .addEventListener("input", function () {
+              const errorDiv = document.getElementById("tableError");
+              if (errorDiv) {
+                errorDiv.style.display = "none";
               }
             });
         </script>

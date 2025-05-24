@@ -29,6 +29,7 @@ type Querier interface {
 	DeleteTableByID(ctx context.Context, id pgtype.UUID) error
 	DeleteUserByCognitoSub(ctx context.Context, cognitoSub string) error
 	DeleteUserByID(ctx context.Context, id pgtype.UUID) error
+	GetAllTableCodes(ctx context.Context) ([]string, error)
 	// -- name: ListTablesByUserID :many
 	// -- Retrieves all membership records for a specific user_id.
 	// SELECT * FROM table_members

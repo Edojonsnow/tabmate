@@ -1,7 +1,9 @@
 package controllers
 
 import (
+	"context"
 	"log"
+	tablesclea "tabmate/internals/store/postgres"
 
 	"github.com/google/uuid"
 )
@@ -20,7 +22,6 @@ type Table struct {
 	unregister chan *TableClient
 
 	processIncomingMessage chan *ClientMessage 
-
 }
 
 type ClientMessage struct {
@@ -32,18 +33,34 @@ type ClientMessage struct {
 // Map to track active tables
 var activeTables = make(map[string]*Table)
 
-// GetOrCreateTable returns an existing table or creates a new one
-func GetOrCreateTable(code string) *Table {
-	// First try to get existing table
+func InitializeActiveTables(ctx context.Context, db *tablesclea.Queries) error {
+	codes, err := db.GetAllTableCodes(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, code := range codes {
+		if _, exists := activeTables[code]; !exists {
+			activeTables[code] = nil 
+		}
+	}
+	return nil
+}
+
+func GetTable(code string) *Table {
 	if table, exists := activeTables[code]; exists {
 		return table
 	}
+	return nil
+}
 
-	// If table doesn't exist, create new one
-	newTable := NewTable(uuid.New(), code)
-	activeTables[code] = newTable
+func CreateTable() *Table {
+
+	newTableCode := uuid.New().String()[:8]
+	newTable := NewTable(uuid.New(), newTableCode)
+	activeTables[newTableCode] = newTable
 	
-	// Start the table's message processing loop
+
 	go newTable.Run()
 	
 	return newTable
@@ -67,8 +84,7 @@ func (t *Table) Run(){
         case client := <-t.register:
             log.Printf("New client registered for table %s", t.Code)
             t.clients[client] = true
-            // Potentially send initial state of the table to this new client
-
+            
         case client := <-t.unregister:
             if _, ok := t.clients[client]; ok {
                 log.Printf("Client unregistered from table %s", t.Code)
