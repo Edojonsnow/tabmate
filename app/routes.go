@@ -29,9 +29,18 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 	authorized.Use(middleware.AuthMiddleware(queries))
 	{
 		authorized.GET("/profile", controllers.HandleProfile)
+		
 		authorized.GET("/ws-test", func(c *gin.Context) {
-			c.HTML(http.StatusOK, "websocket_test.html", nil)
+			username, _ := c.Get("username")
+			email, _ := c.Get("email")
+		
+			c.HTML(http.StatusOK, "websocket_test.html", gin.H{
+				"username": username,
+				"email":    email,
+			})
 		})
+
+		
 	}
 	
 	
@@ -52,34 +61,39 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 	router.GET("/callback", controllers.HandleCallback)
 	router.GET("/users", controllers.HandleListUsers)
 	router.GET("/logout", controllers.HandleLogout)
+
 	router.GET("/ws/table/:code", func(c *gin.Context) {
 		code := c.Param("code")
+		log.Printf("WebSocket connection attempt for table code: %s", code)
+		
 		table := controllers.GetTable(code)
-
 		if table == nil {
+			log.Printf("Table not found in activeTables map for code: %s", code)
 			c.JSON(http.StatusNotFound, gin.H{
 				"error": "Table not found",
 			})
 			return
 		}
-
-
 		
+		log.Printf("Found table in activeTables map, establishing WebSocket connection")
 		controllers.ServeWs(table, c.Writer, c.Request)
 	})
 
 	// API ROUTES 
+
+	// USERS
 	router.POST("/api/create-user", controllers.CreateUser(queries))
 
-	router.POST("/api/create-table", controllers.CreateTable(queries))
 
-	// Check if table exists
-	router.GET("/api/tables/:code", controllers.GetTableHandler(queries))
+	// TABLES
+	router.POST("/api/create-table", controllers.CreateTable(queries))
+	router.GET("/api/tables/:code", controllers.GetTableHandler(queries)) //check if table exists
+	router.GET("/api/get-user", controllers.GetUser(queries))
 
 	// Table routes
-	router.GET("/tables", controllers.GetTables(queries))
-	router.POST("/tables", controllers.CreateTable(queries))
-	router.GET("/tables/:code", controllers.GetTableHandler(queries))
+	// router.GET("/tables", controllers.GetTables(queries))
+	// router.POST("/tables", controllers.CreateTable(queries))
+	// router.GET("/tables/:code", controllers.GetTableHandler(queries))
 
 	// Print all registered routes
 	routes := router.Routes()

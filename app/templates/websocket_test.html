@@ -47,7 +47,8 @@
       };
 
       ws.onmessage = function (event) {
-        addMessage(`Received: ${event.data}`);
+        const msg = JSON.parse(event.data);
+        addMessage(`${msg.SenderID}: ${msg.Content}`);
       };
 
       ws.onclose = function () {
@@ -71,8 +72,13 @@
         const input = document.getElementById("messageInput");
         const message = input.value;
         if (message) {
-          ws.send(message);
-          addMessage(`Sent: ${message}`);
+          // Create a message object with username and content
+          const messageObj = {
+            username: "{{ .username }}", // This is the username from the template context
+            content: message,
+          };
+          ws.send(JSON.stringify(messageObj));
+          addMessage(`${messageObj.username}: ${messageObj.content}`);
           input.value = "";
         }
       }

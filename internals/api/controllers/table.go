@@ -39,6 +39,7 @@ type ClientMessage struct {
 var activeTables = make(map[string]*Table)
 
 func InitializeActiveTables(ctx context.Context, db *tablesclea.Queries) error {
+	//  TODO: Modify this function to initialize tables from db based on status  'open'
 	codes, err := db.GetAllTableCodes(ctx)
 	if err != nil {
 		return err
@@ -46,13 +47,24 @@ func InitializeActiveTables(ctx context.Context, db *tablesclea.Queries) error {
 
 	for _, code := range codes {
 		if _, exists := activeTables[code]; !exists {
-			activeTables[code] = nil 
+			// Get table details from database
+			dbTable, err := db.GetTableByCode(ctx, code)
+			if err != nil {
+				log.Printf("Error getting table details for code %s: %v", code, err)
+				continue
+			}
+			// Create new table instance
+			table := NewTable(dbTable.ID.Bytes, code)
+			activeTables[code] = table
+			// Start the table's goroutine
+			go table.Run()
 		}
 	}
 	return nil
 }
 
 func GetTable(code string) *Table {
+	log.Printf("Looking for table %s in activeTables map. Current active tables: %v", code, activeTables)
 	if table, exists := activeTables[code]; exists {
 		return table
 	}

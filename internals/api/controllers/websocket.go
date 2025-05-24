@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"bytes"
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -47,7 +48,7 @@ type TableClient struct {
 
 type Message struct {
     SenderID string
-    Content  []byte
+    Content  string
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -73,17 +74,28 @@ func (c *TableClient) readPump() {
 		}
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
 		log.Printf("Received message from client %s: %s", c.userID, string(message))
+
+		var msg struct {
+            Username string `json:"username"`
+            Content  string `json:"content"`
+        }
+        if err := json.Unmarshal(message, &msg); err != nil {
+            log.Printf("Error parsing message: %v", err)
+            continue
+        }
         
         // Create message with sender info
-        msg := Message{
-            SenderID: c.userID,
-            Content:  message,
+        msgStruct := Message{
+			SenderID: msg.Username,
+            Content:  msg.Content,
         }
+		// Marshal the entire struct to JSON
+		jsonMsg, _ := json.Marshal(msgStruct)
         
         // Send to all clients except sender
         for client := range c.table.clients {
             if client.userID != c.userID {
-                client.send <- msg.Content
+                client.send <- jsonMsg
             }
         }
 	}
