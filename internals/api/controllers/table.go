@@ -3,9 +3,14 @@ package controllers
 import (
 	"context"
 	"log"
+	"tabmate/internals/auth"
 	tablesclea "tabmate/internals/store/postgres"
 
+	"net/http"
+
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Table struct {
@@ -54,16 +59,94 @@ func GetTable(code string) *Table {
 	return nil
 }
 
-func CreateTable() *Table {
+func GetTables(queries tablesclea.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tables, err := queries.ListTablesByStatus(c, "open")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch tables"})
+			return
+		}
+		c.JSON(http.StatusOK, tables)
+	}
+}
 
-	newTableCode := uuid.New().String()[:8]
-	newTable := NewTable(uuid.New(), newTableCode)
-	activeTables[newTableCode] = newTable
-	
+func CreateTable(queries tablesclea.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get user info from token
+		token, err := c.Cookie("auth_token")
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
+			return
+		}
 
-	go newTable.Run()
-	
-	return newTable
+		userInfo, err := auth.GetUserInfo(c, token)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			return
+		}
+		// Get User from memory cache
+		user, exists := GetUserFromCache(userInfo.Email)
+		if !exists {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			return
+		}
+		// Generate a new table code
+		newTableCode := uuid.New().String()[:8]
+
+		// Create table in database
+		dbTable, err := queries.CreateTable(c, tablesclea.CreateTableParams{
+			CreatedBy:      user.ID,
+			TableCode:      newTableCode,
+			Name:           pgtype.Text{String: "New Table", Valid: true},
+			RestaurantName: pgtype.Text{String: "Restaurant", Valid: true},
+			Status:         "open",
+			MenuUrl:        pgtype.Text{Valid: false},
+			Members:        []int32{int32(uuid.MustParse(userInfo.Sub).ID())},
+		})
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create table"})
+			return
+		}
+
+		// Create new table instance
+		newTable := NewTable(dbTable.ID.Bytes, newTableCode)
+		activeTables[newTableCode] = newTable
+
+		// Start the table's goroutine
+		go newTable.Run()
+
+		c.JSON(http.StatusOK, gin.H{
+			"code": newTableCode,
+			"id":   dbTable.ID,
+		})
+	}
+}
+
+func GetTableHandler(queries tablesclea.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		code := c.Param("code")
+		
+		// Check if table exists in database
+		dbTable, err := queries.GetTableByCode(c, code)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Table not found"})
+			return
+		}
+
+		// Get or create table instance
+		table := GetTable(code)
+		if table == nil {
+			table = NewTable(dbTable.ID.Bytes, code)
+			activeTables[code] = table
+			go table.Run()
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"code": code,
+			"id":   dbTable.ID,
+		})
+	}
 }
 
 func NewTable(id uuid.UUID , code string ) *Table{

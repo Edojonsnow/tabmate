@@ -6,6 +6,7 @@ import (
 	"net/http"
 	cognito "tabmate/cognito"
 	"tabmate/internals/auth"
+	tablesclea "tabmate/internals/store/postgres"
 
 	"github.com/gin-gonic/gin"
 )
@@ -34,31 +35,48 @@ func ShowLoginForm(c *gin.Context) {
 }
 
 // HandleLogin processes the login form submission
-func HandleLogin(c *gin.Context) {
-	username := c.PostForm("username")
-	password := c.PostForm("password")
+func HandleLogin(queries tablesclea.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		username := c.PostForm("username")
+		password := c.PostForm("password")
 
-	if username == "" || password == "" {
-		c.HTML(http.StatusBadRequest, "login.html", gin.H{
-			"error": "Username and password are required",
-		})
-		return
+		if username == "" || password == "" {
+			c.HTML(http.StatusBadRequest, "login.html", gin.H{
+				"error": "Username and password are required",
+			})
+			return
+		}
+
+		// Authenticate with Cognito
+		authResult, err := actions.SignIn(c.Request.Context(), username, password)
+		if err != nil {
+			c.HTML(http.StatusUnauthorized, "login.html", gin.H{
+				"error": "Invalid username or password",
+			})
+			return
+		}
+
+		// Get user info from token
+		userInfo, err := auth.GetUserInfo(context.Background(), *authResult.IdToken)
+		if err != nil {
+			c.HTML(http.StatusUnauthorized, "login.html", gin.H{
+				"error": "Failed to get user information",
+			})
+			return
+		}
+
+		// Get user from database and cache it
+		user, err := queries.GetUserByEmail(c, userInfo.Email)
+		if err == nil {
+			UpdateUserCache(user)
+		}
+
+		// Store the ID token in a cookie
+		c.SetCookie("auth_token", *authResult.IdToken, 3600, "/", "", false, true)
+
+		// Redirect to profile page
+		c.Redirect(http.StatusFound, "/profile")
 	}
-
-	// Authenticate with Cognito
-	authResult, err := actions.SignIn(c.Request.Context(), username, password)
-	if err != nil {
-		c.HTML(http.StatusUnauthorized, "login.html", gin.H{
-			"error": "Invalid username or password",
-		})
-		return
-	}
-
-	// Store the ID token in a cookie
-	c.SetCookie("auth_token", *authResult.IdToken, 3600, "/", "", false, true)
-
-	// Redirect to profile page
-	c.Redirect(http.StatusFound, "/profile")
 }
 
 // ShowSignupForm renders the signup form

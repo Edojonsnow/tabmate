@@ -70,14 +70,16 @@
             try {
               const response = await fetch(`/api/tables/${code}`);
               const data = await response.json();
+              console.log(data);
 
-              if (data.exists) {
-                window.location.href = `/ws/table/${code}`;
+              if (response.ok) {
+                window.location.href = `/ws-test?code=${code}`;
               } else {
                 // Show error message
                 const errorDiv = document.getElementById("tableError");
                 if (errorDiv) {
                   errorDiv.textContent =
+                    data.error ||
                     "Table not found. Please check the code and try again.";
                   errorDiv.style.display = "block";
                 }
@@ -97,15 +99,20 @@
             try {
               const response = await fetch("/api/create-table", {
                 method: "POST",
-                redirect: "follow",
+                headers: {
+                  "Content-Type": "application/json",
+                },
               });
 
-              if (response.redirected) {
-                // Get the table code from the redirected URL
-                const tableCode = response.url.split("/").pop();
-                // Redirect to the WebSocket test page with the table code
-                window.location.href = `/ws-test?code=${tableCode}`;
+              console.log(response);
+
+              if (!response.ok) {
+                throw new Error("Failed to create table");
               }
+
+              const data = await response.json();
+              // Redirect to the WebSocket test page with the table code
+              window.location.href = `/ws-test?code=${data.code}`;
             } catch (error) {
               console.error("Error creating table:", error);
               const errorDiv = document.getElementById("tableError");

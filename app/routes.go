@@ -38,7 +38,7 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 	// Public routes
 	router.GET("/", controllers.HandleHome)
 	router.GET("/login", middleware.RedirectIfAuthenticated(), controllers.ShowLoginForm)
-	router.POST("/login", controllers.HandleLogin)
+	router.POST("/login", controllers.HandleLogin(queries))
 	router.GET("/signup", controllers.ShowSignupForm)
 
 	// router.GET("/profile", controllers.ShowProfile)
@@ -55,65 +55,31 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 	router.GET("/ws/table/:code", func(c *gin.Context) {
 		code := c.Param("code")
 		table := controllers.GetTable(code)
-		
+
 		if table == nil {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error": "Table not found",
 			})
 			return
 		}
+
+
 		
-		// Get the underlying http.ResponseWriter and http.Request
-		w := c.Writer
-		r := c.Request
-		
-		// Set headers for WebSocket upgrade
-		w.Header().Set("Upgrade", "websocket")
-		w.Header().Set("Connection", "Upgrade")
-		
-		controllers.ServeWs(table, w, r)
+		controllers.ServeWs(table, c.Writer, c.Request)
 	})
 
 	// API ROUTES 
 	router.POST("/api/create-user", controllers.CreateUser(queries))
 
-	router.POST("/api/create-table", func(c *gin.Context) {
-		table := controllers.CreateTable()
-		// Redirect to the table's URL with the generated code
-		c.Redirect(http.StatusFound, "/ws/table/"+table.Code)
-	})
+	router.POST("/api/create-table", controllers.CreateTable(queries))
 
 	// Check if table exists
-	router.GET("/api/tables/:code", func(c *gin.Context) {
-		code := c.Param("code")
-		table := controllers.GetTable(code)
-		if table == nil {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "Table not found",
-				"exists": false,
-			})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{
-			"exists": true,
-			"code": code,
-		})
-	})
+	router.GET("/api/tables/:code", controllers.GetTableHandler(queries))
 
-	// Table view route
-	// router.GET("/table/:code", func(c *gin.Context) {
-	// 	code := c.Param("code")
-	// 	table := controllers.GetTable(code)
-	// 	if table == nil {
-	// 		c.HTML(http.StatusNotFound, "error.html", gin.H{
-	// 			"error": "Table not found",
-	// 		})
-	// 		return
-	// 	}
-	// 	c.HTML(http.StatusOK, "table.html", gin.H{
-	// 		"tableCode": code,
-	// 	})
-	// })
+	// Table routes
+	router.GET("/tables", controllers.GetTables(queries))
+	router.POST("/tables", controllers.CreateTable(queries))
+	router.GET("/tables/:code", controllers.GetTableHandler(queries))
 
 	// Print all registered routes
 	routes := router.Routes()
