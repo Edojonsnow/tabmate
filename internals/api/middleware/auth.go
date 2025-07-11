@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"strings"
 	"tabmate/internals/auth"
@@ -17,6 +18,7 @@ func AuthMiddleware(queries tablesclea.Querier) gin.HandlerFunc {
 		// Get the token from the cookie
 		token, err := c.Cookie("auth_token")
 		if err != nil {
+			log.Printf("No auth token found, redirecting to login")
 			c.Redirect(http.StatusFound, "/login")
 			c.Abort()
 			return
@@ -25,6 +27,7 @@ func AuthMiddleware(queries tablesclea.Querier) gin.HandlerFunc {
 		// Verify the token using OIDC provider
 		userInfo, err := auth.GetUserInfo(context.Background(), token)
 		if err != nil {
+			log.Printf("Invalid auth token: %v, redirecting to login", err)
 			c.Redirect(http.StatusFound, "/login")
 			c.Abort()
 			return

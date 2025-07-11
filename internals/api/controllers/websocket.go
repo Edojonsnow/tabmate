@@ -40,10 +40,11 @@ var upgrader = websocket.Upgrader{
 }
 
 type TableClient struct {
-    table   *Table       // Reference to the Table this client belongs to
-    conn    *websocket.Conn
-    send    chan []byte // Buffered channel of outbound messages for this client
-    userID  string    // The authenticated user ID
+    table    *Table       // Reference to the Table this client belongs to
+    conn     *websocket.Conn
+    send     chan []byte  // Buffered channel of outbound messages for this client
+    userID   string       // The authenticated user ID
+    username string       // The user's display name
 }
 
 type Message struct {
@@ -76,7 +77,6 @@ func (c *TableClient) readPump() {
 		log.Printf("Received message from client %s: %s", c.userID, string(message))
 
 		var msg struct {
-            Username string `json:"username"`
             Content  string `json:"content"`
         }
         if err := json.Unmarshal(message, &msg); err != nil {
@@ -84,9 +84,9 @@ func (c *TableClient) readPump() {
             continue
         }
         
-        // Create message with sender info
+        // Create message with sender info using client's username
         msgStruct := Message{
-			SenderID: msg.Username,
+			SenderID: c.username,
             Content:  msg.Content,
         }
 		// Marshal the entire struct to JSON
@@ -163,6 +163,29 @@ func ServeWs(table *Table, w http.ResponseWriter, r *http.Request) {
 		conn:   conn,
 		send:   make(chan []byte, 256),
 		userID: tempUserID,
+	}
+
+	// Register the client
+	table.register <- client
+
+	// Start goroutines for reading and writing
+	go client.readPump()
+	go client.writePump()
+}
+
+func ServeWsWithUser(table *Table, w http.ResponseWriter, r *http.Request, username string, email string) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("Error upgrading to websocket: %v", err)
+		return
+	}
+
+	client := &TableClient{
+		table:    table,
+		conn:     conn,
+		send:     make(chan []byte, 256),
+		userID:   username, // Use username as userID
+		username: username, // Store username for display
 	}
 
 	// Register the client

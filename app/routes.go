@@ -62,9 +62,13 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 	router.GET("/users", controllers.HandleListUsers)
 	router.GET("/logout", controllers.HandleLogout)
 
-	router.GET("/ws/table/:code", func(c *gin.Context) {
+	// WebSocket route with authentication
+	authorized.GET("/ws/table/:code", func(c *gin.Context) {
 		code := c.Param("code")
-		log.Printf("WebSocket connection attempt for table code: %s", code)
+		username, _ := c.Get("username")
+		email, _ := c.Get("email")
+		
+		log.Printf("WebSocket connection attempt for table code: %s by user: %s", code, username)
 		
 		table := controllers.GetTable(code)
 		if table == nil {
@@ -75,8 +79,8 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 			return
 		}
 		
-		log.Printf("Found table in activeTables map, establishing WebSocket connection")
-		controllers.ServeWs(table, c.Writer, c.Request)
+		log.Printf("Found table in activeTables map, establishing WebSocket connection for user: %s", username)
+		controllers.ServeWsWithUser(table, c.Writer, c.Request, username.(string), email.(string))
 	})
 
 	// API ROUTES 

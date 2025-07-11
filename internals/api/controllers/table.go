@@ -154,11 +154,28 @@ func GetTableHandler(queries tablesclea.Querier) gin.HandlerFunc {
 			go table.Run()
 		}
 
+
+		// Get connected usernames
+		usernames := table.GetUsernames()
+		log.Printf("Connected usernames for table %s: %v", code, usernames)
+
 		c.JSON(http.StatusOK, gin.H{
 			"code": code,
 			"id":   dbTable.ID,
+			"usernames": usernames,
 		})
 	}
+}
+
+func (t *Table) GetUsernames() []string {
+    usernames := []string{}
+    for client := range t.clients {
+        log.Printf("Client in map: %v", client.username)
+        if client.username != "" {
+            usernames = append(usernames, client.username)
+        }
+    }
+    return usernames
 }
 
 func NewTable(id uuid.UUID , code string ) *Table{
@@ -177,14 +194,18 @@ func (t *Table) Run(){
 	for {
         select {
         case client := <-t.register:
-            log.Printf("New client registered for table %s", t.Code)
+            log.Printf("Registering client: %v", client.username)
             t.clients[client] = true
+			usernames := t.GetUsernames()
+			log.Printf("Current connected usernames: %v", usernames)
+         
             
         case client := <-t.unregister:
             if _, ok := t.clients[client]; ok {
-                log.Printf("Client unregistered from table %s", t.Code)
+                log.Printf("Client unregistered: %v", client.username)
                 delete(t.clients, client)
-                close(client.send) // Assuming client has a 'send chan []byte'
+                close(client.send)
+
             }
 
         case clientMsg := <-t.processIncomingMessage:

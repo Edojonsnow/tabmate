@@ -10,10 +10,25 @@
         margin-bottom: 10px;
         padding: 10px;
       }
+      #item-name {
+        cursor: pointer;
+        background-color: bisque;
+        margin: 4px;
+        padding: 4px;
+        width: fit-content;
+      }
       .message {
         margin: 5px 0;
         padding: 5px;
         background: #f0f0f0;
+      }
+      .item {
+        margin: 5px 0;
+        padding: 5px;
+        font-size: 20px;
+        background: #d07d09;
+        width: fit-content;
+        padding: 2px;
       }
     </style>
   </head>
@@ -23,6 +38,23 @@
     <div id="messages"></div>
     <input type="text" id="messageInput" placeholder="Type a message..." />
     <button onclick="sendMessage()">Send</button>
+    <div onclick="addItem(event)" id="item-name">Jollof rice</div>
+    <div onclick="addItem(event)" id="item-name">Fried rice</div>
+    <div onclick="addItem(event)" id="item-name">Goat meat</div>
+    <div onclick="addItem(event)" id="item-name">Asun</div>
+
+    <div>
+      <h3>
+        Connected Users:
+        <button
+          onclick="fetchConnectedUsers()"
+          style="margin-left: 10px; padding: 2px 8px"
+        >
+          Refresh
+        </button>
+      </h3>
+      <ul id="userList"></ul>
+    </div>
 
     <script>
       // Get table code from URL or generate a new one
@@ -44,11 +76,24 @@
 
       ws.onopen = function () {
         addMessage("Connected to WebSocket");
+        // Fetch users after connection is established
+        fetchConnectedUsers();
       };
 
       ws.onmessage = function (event) {
         const msg = JSON.parse(event.data);
         addMessage(`${msg.SenderID}: ${msg.Content}`);
+
+        // Check if this is a join/leave message and update user list
+        if (
+          msg.Content &&
+          (msg.Content.includes("joined") ||
+            msg.Content.includes("left") ||
+            msg.Content.includes("disconnected"))
+        ) {
+          console.log("User list change detected, fetching updated list...");
+          fetchConnectedUsers();
+        }
       };
 
       ws.onclose = function () {
@@ -56,8 +101,43 @@
       };
 
       ws.onerror = function (error) {
-        addMessage(`Error: ${error.message}`);
+        console.error("WebSocket error:", error);
+        addMessage(`Error: ${error.message || "Connection failed"}`);
       };
+
+      // Function to fetch and display connected users
+      async function fetchConnectedUsers() {
+        try {
+          const response = await fetch(`/api/tables/${tableCode}`);
+          const data = await response.json();
+
+          if (response.ok && data.usernames) {
+            updateUserList(data.usernames);
+          }
+        } catch (error) {
+          console.error("Error fetching users:", error);
+        }
+      }
+
+      function updateUserList(usernames) {
+        const userList = document.getElementById("userList");
+        userList.innerHTML = "";
+
+        if (usernames.length === 0) {
+          const li = document.createElement("li");
+          li.textContent = "No users connected";
+          userList.appendChild(li);
+        } else {
+          usernames.forEach((username) => {
+            const li = document.createElement("li");
+            li.textContent = username;
+            userList.appendChild(li);
+          });
+        }
+      }
+
+      // Fetch users initially after connection
+      // (Real-time updates will be handled via WebSocket messages)
 
       function addMessage(text) {
         const messages = document.getElementById("messages");
@@ -68,17 +148,72 @@
         messages.scrollTop = messages.scrollHeight;
       }
 
+      function addItem(event) {
+        // Get the clicked element
+        const clickedDiv = event.target;
+        // Extract the text content
+        const itemText = clickedDiv.textContent;
+
+        // Create a new item element
+        const tableItem = document.createElement("div");
+        tableItem.className = "item";
+        tableItem.textContent = itemText;
+
+        // Append to messages container
+        const messages = document.getElementById("messages");
+
+        // Create a container for the username and item
+        const container = document.createElement("div");
+        container.className = "item";
+        container.style.cursor = "pointer";
+        container.onclick = function () {
+          removeItem(itemText);
+        };
+
+        // Add username and item text
+        container.textContent = `{{ .username }}: ${itemText}`;
+
+        messages.appendChild(container);
+
+        // Also send via WebSocket if needed
+        const messageObj = {
+          content: `Added item: ${itemText}`,
+        };
+        ws.send(JSON.stringify(messageObj));
+      }
+
+      function removeItem(itemText) {
+        // itemText is now passed directly as a parameter
+
+        // Find and remove the item from messages
+        const messages = document.getElementById("messages");
+        const items = messages.querySelectorAll(".item");
+
+        // Find the item that matches the text content
+        for (let item of items) {
+          if (item.textContent.includes(itemText)) {
+            messages.removeChild(item);
+            break;
+          }
+        }
+
+        // Send removal message via WebSocket
+        const messageObj = {
+          content: `Removed item: ${itemText}`,
+        };
+        ws.send(JSON.stringify(messageObj));
+      }
+
       function sendMessage() {
         const input = document.getElementById("messageInput");
         const message = input.value;
         if (message) {
-          // Create a message object with username and content
+          // Create a message object with content only (username handled by server)
           const messageObj = {
-            username: "{{ .username }}", // This is the username from the template context
             content: message,
           };
           ws.send(JSON.stringify(messageObj));
-          addMessage(`${messageObj.username}: ${messageObj.content}`);
+          addMessage(`{{ .username }}: ${messageObj.content}`);
           input.value = "";
         }
       }

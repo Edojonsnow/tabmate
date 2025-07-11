@@ -8,6 +8,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Items struct {
+	ID                 pgtype.UUID        `json:"id"`
+	TableID            pgtype.UUID        `json:"table_id"`
+	AddedByUserID      pgtype.UUID        `json:"added_by_user_id"`
+	Name               string             `json:"name"`
+	Price              pgtype.Numeric     `json:"price"`
+	Quantity           int32              `json:"quantity"`
+	Description        pgtype.Text        `json:"description"`
+	Source             pgtype.Text        `json:"source"`
+	OriginalParsedText pgtype.Text        `json:"original_parsed_text"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
 type TableMembers struct {
 	TableID   pgtype.UUID        `json:"table_id"`
 	UserID    pgtype.UUID        `json:"user_id"`

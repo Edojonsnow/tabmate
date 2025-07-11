@@ -25,6 +25,8 @@ type Querier interface {
 	CountOpenTables(ctx context.Context) (int64, error)
 	CreateTable(ctx context.Context, arg CreateTableParams) (Tables, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (Users, error)
+	// Remove an item from a table
+	DeleteItemFromTable(ctx context.Context, id pgtype.UUID) error
 	DeleteTableByCode(ctx context.Context, tableCode string) error
 	DeleteTableByID(ctx context.Context, id pgtype.UUID) error
 	DeleteUserByCognitoSub(ctx context.Context, cognitoSub string) error
@@ -47,6 +49,8 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (Users, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (Users, error)
 	ListAllUsers(ctx context.Context) ([]Users, error)
+	// Retrieves all the items in a table.
+	ListItemsInTable(ctx context.Context, tableID pgtype.UUID) ([]Items, error)
 	// Retrieves all membership records for a specific table_id.
 	ListMembersByTableID(ctx context.Context, tableID pgtype.UUID) ([]TableMembers, error)
 	// Retrieves all members of a specific table_id and include their user details.
