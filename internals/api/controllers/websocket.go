@@ -77,26 +77,46 @@ func (c *TableClient) readPump() {
 		log.Printf("Received message from client %s: %s", c.userID, string(message))
 
 		var msg struct {
+            Type     string `json:"type"`
             Content  string `json:"content"`
+            Username string `json:"username"`
+            Item     string `json:"item"`
         }
         if err := json.Unmarshal(message, &msg); err != nil {
             log.Printf("Error parsing message: %v", err)
             continue
         }
         
-        // Create message with sender info using client's username
-        msgStruct := Message{
-			SenderID: c.username,
-            Content:  msg.Content,
-        }
-		// Marshal the entire struct to JSON
-		jsonMsg, _ := json.Marshal(msgStruct)
-        
-        // Send to all clients except sender
-        for client := range c.table.clients {
-            if client.userID != c.userID {
-                client.send <- jsonMsg
+        switch msg.Type {
+        case "chat":
+            msgStruct := Message{
+                SenderID: c.username,
+                Content:  msg.Content,
             }
+            jsonMsg, _ := json.Marshal(msgStruct)
+            for client := range c.table.clients {
+                if client.userID != c.userID {
+                    client.send <- jsonMsg
+                }
+            }
+        case "menu_add":
+            // Broadcast menu add event
+            menuMsg := struct {
+                Type     string `json:"type"`
+                Username string `json:"username"`
+                Item     string `json:"item"`
+            }{
+                Type:     "menu_add",
+                Username: msg.Username,
+                Item:     msg.Item,
+            }
+            jsonMenuMsg, _ := json.Marshal(menuMsg)
+            for client := range c.table.clients {
+                client.send <- jsonMenuMsg
+            }
+            // Add more cases as needed
+        default:
+            log.Printf("Unknown message type: %s", msg.Type)
         }
 	}
 }

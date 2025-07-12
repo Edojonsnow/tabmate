@@ -54,9 +54,13 @@
         </button>
       </h3>
       <ul id="userList"></ul>
+      <div style="display: flex; gap: 20px" id="userMenu"></div>
     </div>
 
     <script>
+      // Declare usernames at a higher scope so it is accessible outside functions
+      let usernames = [];
+
       // Get table code from URL or generate a new one
       const urlParams = new URLSearchParams(window.location.search);
       let tableCode = urlParams.get("code");
@@ -82,6 +86,21 @@
 
       ws.onmessage = function (event) {
         const msg = JSON.parse(event.data);
+
+        if (msg.type === "menu_add") {
+          // Add item to the correct user's menu
+          const userListMenu = document.getElementById(
+            `menu-list-${msg.username}`
+          );
+          if (userListMenu) {
+            const item = document.createElement("li");
+            item.textContent = msg.item;
+            userListMenu.appendChild(item);
+          }
+          return; // Don't treat as chat
+        }
+
+        // Default: treat as chat message
         addMessage(`${msg.SenderID}: ${msg.Content}`);
 
         // Check if this is a join/leave message and update user list
@@ -119,9 +138,14 @@
         }
       }
 
-      function updateUserList(usernames) {
+      function updateUserList(newUsernames) {
+        usernames = newUsernames;
         const userList = document.getElementById("userList");
         userList.innerHTML = "";
+
+        // Clear and rebuild the userMenu
+        const userMenu = document.getElementById("userMenu");
+        userMenu.innerHTML = "";
 
         if (usernames.length === 0) {
           const li = document.createElement("li");
@@ -129,11 +153,44 @@
           userList.appendChild(li);
         } else {
           usernames.forEach((username) => {
+            // Add to userList
             const li = document.createElement("li");
             li.textContent = username;
             userList.appendChild(li);
+
+            // Create a column for each user in the menu
+            const userCol = document.createElement("div");
+            userCol.className = "user-menu-column";
+            userCol.style.display = "flex";
+            userCol.style.flexDirection = "column";
+            userCol.style.alignItems = "center";
+            userCol.style.minWidth = "120px";
+
+            const userHeader = document.createElement("h1");
+            userHeader.textContent = username;
+            userHeader.style.fontSize = "1.2em";
+            userHeader.style.marginBottom = "8px";
+            userCol.appendChild(userHeader);
+
+            const userListMenu = document.createElement("ul");
+            userListMenu.id = `menu-list-${username}`;
+            userListMenu.style.listStyle = "none";
+            userListMenu.style.padding = "0";
+            userCol.appendChild(userListMenu);
+
+            userMenu.appendChild(userCol);
           });
         }
+      }
+
+      function updateUserMenu(itemText) {
+        const currentUsername = "{{ .username }}"; // Or your JS variable for the current user
+        const messageObj = {
+          type: "menu_add",
+          username: currentUsername,
+          item: itemText,
+        };
+        ws.send(JSON.stringify(messageObj));
       }
 
       // Fetch users initially after connection
@@ -155,12 +212,12 @@
         const itemText = clickedDiv.textContent;
 
         // Create a new item element
-        const tableItem = document.createElement("div");
+        const tableItem = document.createElement("li");
         tableItem.className = "item";
         tableItem.textContent = itemText;
 
-        // Append to messages container
-        const messages = document.getElementById("messages");
+        // Append to User menu container
+        updateUserMenu(itemText);
 
         // Create a container for the username and item
         const container = document.createElement("div");
@@ -208,8 +265,9 @@
         const input = document.getElementById("messageInput");
         const message = input.value;
         if (message) {
-          // Create a message object with content only (username handled by server)
+          // Create a message object with type and content
           const messageObj = {
+            type: "chat",
             content: message,
           };
           ws.send(JSON.stringify(messageObj));
