@@ -3,7 +3,7 @@
 //   sqlc v1.27.0
 // source: items_queries.sql
 
-package tablesclea
+package tabmate
 
 import (
 	"context"

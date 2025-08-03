@@ -1,4 +1,4 @@
-package cognito
+package auth
 
 import (
 	"context"
@@ -7,26 +7,24 @@ import (
 	"encoding/base64"
 	"errors"
 	"log"
-	"tabmate/internals/auth"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider/types"
 )
 
-var (
-	cognitoclientId = auth.GetClientID()
-	clientSecret    = auth.GetClientSecret()
-)
+
 
 type CognitoActions struct {
 	CognitoClient *cognitoidentityprovider.Client
+	ClientID      string
+	ClientSecret  string
 }
 
 // computeSecretHash computes the SECRET_HASH for Cognito operations
-func computeSecretHash(username string) string {
-	message := username + cognitoclientId
-	key := []byte(clientSecret)
+func (actor CognitoActions) computeSecretHash(username string) string {
+	message := username + actor.ClientID
+	key := []byte(actor.ClientSecret)
 	h := hmac.New(sha256.New, key)
 	h.Write([]byte(message))
 	return base64.StdEncoding.EncodeToString(h.Sum(nil))
@@ -36,10 +34,10 @@ func computeSecretHash(username string) string {
 func (actor CognitoActions) SignUp(ctx context.Context, userName string, password string, userEmail string, phoneNumber string) (bool, error) {
 	confirmed := false
 	output, err := actor.CognitoClient.SignUp(ctx, &cognitoidentityprovider.SignUpInput{
-		ClientId: aws.String(cognitoclientId),
+		ClientId: aws.String(actor.ClientID),
 		Password: aws.String(password),
 		Username: aws.String(userName),
-		SecretHash: aws.String(computeSecretHash(userName)),
+		SecretHash: aws.String(actor.computeSecretHash(userName)),
 		UserAttributes: []types.AttributeType{
 			{Name: aws.String("email"), Value: aws.String(userEmail)},
 			{Name: aws.String("name"), Value: aws.String(userName)},
@@ -61,10 +59,10 @@ func (actor CognitoActions) SignUp(ctx context.Context, userName string, passwor
 
 func (actor CognitoActions) ConfirmSignUp(ctx context.Context, username string, code string) error {
 	_, err := actor.CognitoClient.ConfirmSignUp(ctx, &cognitoidentityprovider.ConfirmSignUpInput{
-		ClientId:         aws.String(cognitoclientId),
+		ClientId:         aws.String(actor.ClientID),
 		ConfirmationCode: aws.String(code),
 		Username:         aws.String(username),
-		SecretHash:       aws.String(computeSecretHash(username)),
+		SecretHash:       aws.String(actor.computeSecretHash(username)),
 	})
 	if err != nil {
 		log.Printf("Couldn't confirm user %v. Here's why: %v\n", username, err)
@@ -76,11 +74,11 @@ func (actor CognitoActions) SignIn(ctx context.Context, userName string, passwor
 	var authResult *types.AuthenticationResultType
 	output, err := actor.CognitoClient.InitiateAuth(ctx, &cognitoidentityprovider.InitiateAuthInput{
 		AuthFlow: "USER_PASSWORD_AUTH",
-		ClientId: aws.String(cognitoclientId),
+		ClientId: aws.String(actor.ClientID),
 		AuthParameters: map[string]string{
 			"USERNAME":    userName,
 			"PASSWORD":    password,
-			"SECRET_HASH": computeSecretHash(userName),
+			"SECRET_HASH": actor.computeSecretHash(userName),
 		},
 	})
 	if err != nil {
@@ -98,7 +96,7 @@ func (actor CognitoActions) SignIn(ctx context.Context, userName string, passwor
 
 func (actor CognitoActions) ForgotPassword(ctx context.Context, userName string) (*types.CodeDeliveryDetailsType, error) {
 	output, err := actor.CognitoClient.ForgotPassword(ctx, &cognitoidentityprovider.ForgotPasswordInput{
-		ClientId: aws.String(cognitoclientId),
+		ClientId: aws.String(actor.ClientID),
 		Username: aws.String(userName),
 	})
 	if err != nil {
@@ -109,7 +107,7 @@ func (actor CognitoActions) ForgotPassword(ctx context.Context, userName string)
 
 func (actor CognitoActions) ConfirmForgotPassword(ctx context.Context, code string, userName string, password string) error {
 	_, err := actor.CognitoClient.ConfirmForgotPassword(ctx, &cognitoidentityprovider.ConfirmForgotPasswordInput{
-		ClientId:         aws.String(cognitoclientId),
+		ClientId:         aws.String(actor.ClientID),
 		ConfirmationCode: aws.String(code),
 		Password:         aws.String(password),
 		Username:         aws.String(userName),

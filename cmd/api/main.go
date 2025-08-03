@@ -4,8 +4,8 @@ import (
 	"context"
 	"log"
 	"os"
-	"tabmate/internals/api/controllers"
-	tablesclea "tabmate/internals/store/postgres"
+	tablecontrollers "tabmate/internals/controllers/table"
+	tabmate "tabmate/internals/store/postgres"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
@@ -34,10 +34,10 @@ func main() {
 	}
 	log.Println("Successfully connected to the database!")
 
-	queries := tablesclea.New(conn)
+	queries := tabmate.New(conn)
 	router := setupRouter(queries)
 
-	err = controllers.InitializeActiveTables(context.Background(), queries)
+	err = tablecontrollers.InitializeActiveTables(context.Background(), queries)
 	if err != nil {
 		log.Fatalf("Failed to initialize active tables: %v", err)
 	}

@@ -4,20 +4,24 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	cognito "tabmate/cognito"
+
 	"tabmate/internals/auth"
-	tablesclea "tabmate/internals/store/postgres"
+	usercontroller "tabmate/internals/controllers/user"
+	tabmate "tabmate/internals/store/postgres"
 
 	"github.com/gin-gonic/gin"
 )
 
 var (
-	cognitoClient = auth.GetCognitoClient()
-	clientID = auth.GetClientID()
-	
-	actions = cognito.CognitoActions{
-		CognitoClient: cognitoClient,
-	}
+    cognitoClient = auth.GetCognitoClient()
+    clientID = auth.GetClientID()
+	clientSecret = auth.GetClientSecret()
+    
+    actions = auth.CognitoActions{
+        CognitoClient: cognitoClient,
+        ClientID:      clientID,
+        ClientSecret:  clientSecret,
+    }
 )
 
 // HandleHome renders the home page with login link
@@ -35,7 +39,7 @@ func ShowLoginForm(c *gin.Context) {
 }
 
 // HandleLogin processes the login form submission
-func HandleLogin(queries tablesclea.Querier) gin.HandlerFunc {
+func HandleLogin(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		username := c.PostForm("username")
 		password := c.PostForm("password")
@@ -68,7 +72,7 @@ func HandleLogin(queries tablesclea.Querier) gin.HandlerFunc {
 		// Get user from database and cache it
 		user, err := queries.GetUserByEmail(c, userInfo.Email)
 		if err == nil {
-			UpdateUserCache(user)
+			usercontroller.UpdateUserCache(user)
 		}
 
 		// Store the ID token in a cookie

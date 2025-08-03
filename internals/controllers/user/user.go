@@ -4,36 +4,36 @@ import (
 	"context"
 	"net/http"
 	"tabmate/internals/auth"
-	tablesclea "tabmate/internals/store/postgres"
+	tabmate "tabmate/internals/store/postgres"
 
 	"github.com/gin-gonic/gin"
 )
 
 // UserCache stores user details in memory
-var userCache = make(map[string]tablesclea.Users)
+var userCache = make(map[string]tabmate.Users)
 
 // UpdateUserCache updates the user cache with new user data
-func UpdateUserCache(user tablesclea.Users) {
+func UpdateUserCache(user tabmate.Users) {
 	userCache[user.Email] = user
 }
 
 // GetUserFromCache retrieves user from cache
-func GetUserFromCache(email string) (tablesclea.Users, bool) {
+func GetUserFromCache(email string) (tabmate.Users, bool) {
 	user, exists := userCache[email]
 	return user, exists
 }
 
 // CreateUser handles user creation
-func CreateUser(queries tablesclea.Querier) gin.HandlerFunc {
+func CreateUser(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
-			var req tablesclea.CreateUserParams
+			var req tabmate.CreateUserParams
 	
 			if err := c.BindJSON(&req); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
 	
-		user, err := queries.CreateUser(c, tablesclea.CreateUserParams{
+		user, err := queries.CreateUser(c, tabmate.CreateUserParams{
 			Name:            req.Name,
 			ProfilePictureUrl: req.ProfilePictureUrl,
 			CognitoSub:        req.CognitoSub,
@@ -49,7 +49,7 @@ func CreateUser(queries tablesclea.Querier) gin.HandlerFunc {
 	}
 }
 
-func GetUser(queries tablesclea.Querier) gin.HandlerFunc {
+func GetUser(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get the token from the cookie
 		token, err := c.Cookie("auth_token")

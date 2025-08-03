@@ -3,18 +3,20 @@ package main
 import (
 	"log"
 	"net/http"
-	"tabmate/internals/api/controllers"
-	"tabmate/internals/api/middleware"
-	tablesclea "tabmate/internals/store/postgres"
+	authcontroller "tabmate/internals/controllers/auth"
+	tablecontroller "tabmate/internals/controllers/table"
+	usercontroller "tabmate/internals/controllers/user"
+	"tabmate/internals/middleware"
+	tabmate "tabmate/internals/store/postgres"
 
 	"github.com/gin-gonic/gin"
 )
 
-func setupRouter(queries tablesclea.Querier) *gin.Engine {
+func setupRouter(queries tabmate.Querier) *gin.Engine {
 	router := gin.Default()
 	
 	// Load HTML templates
-	router.LoadHTMLGlob("app/templates/*")
+	router.LoadHTMLGlob("templates/*")
 	
 	// Add logging middleware
 	router.Use(gin.Logger())
@@ -28,7 +30,7 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 	authorized := router.Group("/")
 	authorized.Use(middleware.AuthMiddleware(queries))
 	{
-		authorized.GET("/profile", controllers.HandleProfile)
+		authorized.GET("/profile", authcontroller.HandleProfile)
 		
 		authorized.GET("/ws-test", func(c *gin.Context) {
 			username, _ := c.Get("username")
@@ -45,20 +47,20 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 	
 	
 	// Public routes
-	router.GET("/", controllers.HandleHome)
-	router.GET("/login", middleware.RedirectIfAuthenticated(), controllers.ShowLoginForm)
-	router.POST("/login", controllers.HandleLogin(queries))
-	router.GET("/signup", controllers.ShowSignupForm)
-	router.POST("/signup", controllers.HandleSignup)
-	router.GET("/confirm-signup", controllers.HandleConfirmSignup)
-	router.POST("/confirm-signup", controllers.HandleConfirmSignup)
-	router.GET("/forgot-password", controllers.HandleForgotPassword)
-	router.POST("/forgot-password", controllers.HandleForgotPasswordSubmit)
-	router.GET("/reset-password", controllers.HandleResetPassword)
-	router.POST("/reset-password", controllers.HandleResetPassword)
-	router.GET("/callback", controllers.HandleCallback)
-	router.GET("/users", controllers.HandleListUsers)
-	router.GET("/logout", controllers.HandleLogout)
+	router.GET("/", authcontroller.HandleHome)
+	router.GET("/login", middleware.RedirectIfAuthenticated(), authcontroller.ShowLoginForm)
+	router.POST("/login", authcontroller.HandleLogin(queries))
+	router.GET("/signup", authcontroller.ShowSignupForm)
+	router.POST("/signup", authcontroller.HandleSignup)
+	router.GET("/confirm-signup", authcontroller.HandleConfirmSignup)
+	router.POST("/confirm-signup", authcontroller.HandleConfirmSignup)
+	router.GET("/forgot-password", authcontroller.HandleForgotPassword)
+	router.POST("/forgot-password", authcontroller.HandleForgotPasswordSubmit)
+	router.GET("/reset-password", authcontroller.HandleResetPassword)
+	router.POST("/reset-password", authcontroller.HandleResetPassword)
+	router.GET("/callback", authcontroller.HandleCallback)
+	router.GET("/users", authcontroller.HandleListUsers)
+	router.GET("/logout", authcontroller.HandleLogout)
 
 	// WebSocket route with authentication
 	authorized.GET("/ws/table/:code", func(c *gin.Context) {
@@ -68,7 +70,7 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 		
 		log.Printf("WebSocket connection attempt for table code: %s by user: %s", code, username)
 		
-		table := controllers.GetTable(code)
+		table := tablecontroller.GetTable(code)
 		if table == nil {
 			log.Printf("Table not found in activeTables map for code: %s", code)
 			c.JSON(http.StatusNotFound, gin.H{
@@ -78,19 +80,19 @@ func setupRouter(queries tablesclea.Querier) *gin.Engine {
 		}
 		
 		log.Printf("Found table in activeTables map, establishing WebSocket connection for user: %s", username)
-		controllers.ServeWsWithUser(table, c.Writer, c.Request, username.(string), email.(string))
+		tablecontroller.ServeWsWithUser(table, c.Writer, c.Request, username.(string), email.(string))
 	})
 
 	// API ROUTES 
 
 	// USERS
-	router.POST("/api/create-user", controllers.CreateUser(queries))
+	router.POST("/api/create-user", usercontroller.CreateUser(queries))
 
 
 	// TABLES
-	router.POST("/api/create-table", controllers.CreateTable(queries))
-	router.GET("/api/tables/:code", controllers.GetTableHandler(queries)) //check if table exists
-	router.GET("/api/get-user", controllers.GetUser(queries))
+	router.POST("/api/create-table", tablecontroller.CreateTable(queries))
+	router.GET("/api/tables/:code", tablecontroller.GetTableHandler(queries)) //check if table exists
+	router.GET("/api/get-user", usercontroller.GetUser(queries))
 
 	// Table routes
 	// router.GET("/tables", controllers.GetTables(queries))

@@ -3,10 +3,10 @@ package controllers
 import (
 	"context"
 	"log"
-	"tabmate/internals/auth"
-	tablesclea "tabmate/internals/store/postgres"
-
 	"net/http"
+	"tabmate/internals/auth"
+	usercontroller "tabmate/internals/controllers/user"
+	tabmate "tabmate/internals/store/postgres"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -38,7 +38,7 @@ type ClientMessage struct {
 // Map to track active tables
 var activeTables = make(map[string]*Table)
 
-func InitializeActiveTables(ctx context.Context, db *tablesclea.Queries) error {
+func InitializeActiveTables(ctx context.Context, db *tabmate.Queries) error {
 	//  TODO: Modify this function to initialize tables from db based on status  'open'
 	codes, err := db.GetAllTableCodes(ctx)
 	if err != nil {
@@ -71,7 +71,7 @@ func GetTable(code string) *Table {
 	return nil
 }
 
-func GetTables(queries tablesclea.Querier) gin.HandlerFunc {
+func GetTables(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tables, err := queries.ListTablesByStatus(c, "open")
 		if err != nil {
@@ -82,7 +82,7 @@ func GetTables(queries tablesclea.Querier) gin.HandlerFunc {
 	}
 }
 
-func CreateTable(queries tablesclea.Querier) gin.HandlerFunc {
+func CreateTable(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get user info from token
 		token, err := c.Cookie("auth_token")
@@ -97,7 +97,7 @@ func CreateTable(queries tablesclea.Querier) gin.HandlerFunc {
 			return
 		}
 		// Get User from memory cache
-		user, exists := GetUserFromCache(userInfo.Email)
+		user, exists := usercontroller.GetUserFromCache(userInfo.Email)
 		if !exists {
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 			return
@@ -106,7 +106,7 @@ func CreateTable(queries tablesclea.Querier) gin.HandlerFunc {
 		newTableCode := uuid.New().String()[:8]
 
 		// Create table in database
-		dbTable, err := queries.CreateTable(c, tablesclea.CreateTableParams{
+		dbTable, err := queries.CreateTable(c, tabmate.CreateTableParams{
 			CreatedBy:      user.ID,
 			TableCode:      newTableCode,
 			Name:           pgtype.Text{String: "New Table", Valid: true},
@@ -135,7 +135,7 @@ func CreateTable(queries tablesclea.Querier) gin.HandlerFunc {
 	}
 }
 
-func GetTableHandler(queries tablesclea.Querier) gin.HandlerFunc {
+func GetTableHandler(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		code := c.Param("code")
 		

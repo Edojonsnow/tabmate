@@ -7,7 +7,7 @@ sql:
     # Configuration for Go code generation.
     gen:
       go:
-        package: "tablesclea"
+        package: "tabmate"
         # The output directory for the generated Go files.
         out: "internals/store/postgres"
         # The SQL driver package to use.

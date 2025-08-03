@@ -6,14 +6,14 @@ import (
 	"net/http"
 	"strings"
 	"tabmate/internals/auth"
-	tablesclea "tabmate/internals/store/postgres"
+	tabmate "tabmate/internals/store/postgres"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // AuthMiddleware checks if the user is authenticated
-func AuthMiddleware(queries tablesclea.Querier) gin.HandlerFunc {
+func AuthMiddleware(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get the token from the cookie
 		token, err := c.Cookie("auth_token")
@@ -34,7 +34,7 @@ func AuthMiddleware(queries tablesclea.Querier) gin.HandlerFunc {
 		}
 
 		// Try to create user if they don't exist
-		_, err = queries.CreateUser(c, tablesclea.CreateUserParams{
+		_, err = queries.CreateUser(c, tabmate.CreateUserParams{
 			Name:            pgtype.Text{String: userInfo.Name, Valid: true},
 			CognitoSub:      userInfo.Sub,
 			Email:           userInfo.Email,
