@@ -186,6 +186,18 @@ func ListItemsInTable(queries tabmate.Querier) gin.HandlerFunc{
 	}
 }
 
+func ListItemsWithUserDetailsInTable(queries tabmate.Querier) gin.HandlerFunc{
+	return func(c *gin.Context) {
+		code := c.Param("code")
+		items, err := queries.ListItemsWithUserDetailsInTable(c, code)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list items with user details in table"})
+			return
+		}
+		c.JSON(http.StatusOK, items)
+	}
+}
+
 func GetTableHandler(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		code := c.Param("code")

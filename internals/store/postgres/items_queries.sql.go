@@ -119,3 +119,75 @@ func (q *Queries) ListItemsInTable(ctx context.Context, tableCode string) ([]Ite
 	}
 	return items, nil
 }
+
+const listItemsWithUserDetailsInTable = `-- name: ListItemsWithUserDetailsInTable :many
+SELECT 
+    i.id,
+    i.table_code,
+    i.added_by_user_id,
+    i.name,
+    i.price,
+    i.quantity,
+    i.description,
+    i.source,
+    i.original_parsed_text,
+    i.created_at,
+    i.updated_at,
+    u.name AS added_by_username,
+    u.email AS added_by_email
+FROM items i
+JOIN users u ON i.added_by_user_id = u.id
+WHERE i.table_code = $1
+ORDER BY i.created_at ASC
+`
+
+type ListItemsWithUserDetailsInTableRow struct {
+	ID                 pgtype.UUID        `json:"id"`
+	TableCode          string             `json:"table_code"`
+	AddedByUserID      pgtype.UUID        `json:"added_by_user_id"`
+	Name               string             `json:"name"`
+	Price              pgtype.Numeric     `json:"price"`
+	Quantity           int32              `json:"quantity"`
+	Description        pgtype.Text        `json:"description"`
+	Source             pgtype.Text        `json:"source"`
+	OriginalParsedText pgtype.Text        `json:"original_parsed_text"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	AddedByUsername    pgtype.Text        `json:"added_by_username"`
+	AddedByEmail       string             `json:"added_by_email"`
+}
+
+// Retrieves all the items in a table with user details (username).
+func (q *Queries) ListItemsWithUserDetailsInTable(ctx context.Context, tableCode string) ([]ListItemsWithUserDetailsInTableRow, error) {
+	rows, err := q.db.Query(ctx, listItemsWithUserDetailsInTable, tableCode)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListItemsWithUserDetailsInTableRow{}
+	for rows.Next() {
+		var i ListItemsWithUserDetailsInTableRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TableCode,
+			&i.AddedByUserID,
+			&i.Name,
+			&i.Price,
+			&i.Quantity,
+			&i.Description,
+			&i.Source,
+			&i.OriginalParsedText,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.AddedByUsername,
+			&i.AddedByEmail,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

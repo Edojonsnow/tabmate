@@ -280,8 +280,9 @@
           // Populate the items array and append to user menus
           data.forEach((item) => {
             items.push(item);
+            // Use the added_by_username from the API response to find the correct menu
             const userListMenu = document.getElementById(
-              `menu-list-{{.username}}`
+              `menu-list-${item.added_by_username}`
             );
             if (userListMenu) {
               const menuItem = document.createElement("li");

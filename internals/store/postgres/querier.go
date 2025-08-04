@@ -53,6 +53,8 @@ type Querier interface {
 	ListAllUsers(ctx context.Context) ([]Users, error)
 	// Retrieves all the items in a table.
 	ListItemsInTable(ctx context.Context, tableCode string) ([]Items, error)
+	// Retrieves all the items in a table with user details (username).
+	ListItemsWithUserDetailsInTable(ctx context.Context, tableCode string) ([]ListItemsWithUserDetailsInTableRow, error)
 	// Retrieves all membership records for a specific table_id.
 	ListMembersByTableID(ctx context.Context, tableID pgtype.UUID) ([]TableMembers, error)
 	// Retrieves all members of a specific table_id and include their user details.
