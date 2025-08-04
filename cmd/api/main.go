@@ -7,7 +7,7 @@ import (
 	tablecontrollers "tabmate/internals/controllers/table"
 	tabmate "tabmate/internals/store/postgres"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 )
 
@@ -23,18 +23,18 @@ func main() {
 		log.Fatal("DB_SOURCE environment variable is not set")
 	}
 
-	conn, err := pgx.Connect(context.Background(), connectionString)
+	pool, err := pgxpool.New(context.Background(), connectionString)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Unable to connect to database: %v\n", err)
 	}
-	defer conn.Close(context.Background())
+	defer pool.Close()
 
-	if err = conn.Ping(context.Background()); err != nil {
+	if err = pool.Ping(context.Background()); err != nil {
 		log.Fatal(err)
 	}
 	log.Println("Successfully connected to the database!")
 
-	queries := tabmate.New(conn)
+	queries := tabmate.New(pool)
 	router := setupRouter(queries)
 
 	err = tablecontrollers.InitializeActiveTables(context.Background(), queries)

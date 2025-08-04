@@ -2,11 +2,12 @@ package middleware
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"net/http"
-	"strings"
-	"tabmate/internals/auth"
+
 	tabmate "tabmate/internals/store/postgres"
+	"tabmate/internals/auth"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -20,7 +21,7 @@ func AuthMiddleware(queries tabmate.Querier) gin.HandlerFunc {
 		if err != nil {
 			log.Printf("No auth token found, redirecting to login")
 			c.Redirect(http.StatusFound, "/login")
-			c.Abort()
+
 			return
 		}
 
@@ -33,18 +34,29 @@ func AuthMiddleware(queries tabmate.Querier) gin.HandlerFunc {
 			return
 		}
 
-		// Try to create user if they don't exist
-		_, err = queries.CreateUser(c, tabmate.CreateUserParams{
-			Name:            pgtype.Text{String: userInfo.Name, Valid: true},
-			CognitoSub:      userInfo.Sub,
-			Email:           userInfo.Email,
-		})
-		// Ignore error if user already exists
-		if err != nil && !strings.Contains(err.Error(), "duplicate key") {
-			log.Printf("Error creating user: %v", err)
-			c.Redirect(http.StatusFound, "/login")
-			c.Abort()
-			return
+		// Check if user already exists
+		_, err = queries.GetUserByCognitoSub(c, userInfo.Sub)
+		if err != nil {
+			// If user does not exist, create them
+			if err == sql.ErrNoRows {
+				_, err = queries.CreateUser(c, tabmate.CreateUserParams{
+					Name:            pgtype.Text{String: userInfo.Name, Valid: true},
+					CognitoSub:      userInfo.Sub,
+					Email:           userInfo.Email,
+				})
+				if err != nil {
+					log.Printf("Error creating user: %v", err)
+					c.Redirect(http.StatusFound, "/login")
+					c.Abort()
+					return
+				}
+			} else {
+				// Handle other potential errors from GetUserByCognitoSub
+				log.Printf("Error checking for existing user: %v", err)
+				c.Redirect(http.StatusFound, "/login")
+				c.Abort()
+				return
+			}
 		}
 
 		// Get user from database to retrieve their ID
