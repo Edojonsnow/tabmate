@@ -41,6 +41,16 @@ func AuthMiddleware(queries tabmate.Querier) gin.HandlerFunc {
 		})
 		// Ignore error if user already exists
 		if err != nil && !strings.Contains(err.Error(), "duplicate key") {
+			log.Printf("Error creating user: %v", err)
+			c.Redirect(http.StatusFound, "/login")
+			c.Abort()
+			return
+		}
+
+		// Get user from database to retrieve their ID
+		user, err := queries.GetUserByCognitoSub(c, userInfo.Sub)
+		if err != nil {
+			log.Printf("Error getting user by CognitoSub: %v", err)
 			c.Redirect(http.StatusFound, "/login")
 			c.Abort()
 			return
@@ -49,6 +59,7 @@ func AuthMiddleware(queries tabmate.Querier) gin.HandlerFunc {
 		// Set user info in context
 		c.Set("username", userInfo.Name)
 		c.Set("email", userInfo.Email)
+		c.Set("user_id", user.ID)
 		c.Next()
 	}
 }
@@ -69,4 +80,4 @@ func RedirectIfAuthenticated() gin.HandlerFunc {
 		}
 		c.Next()
 	}
-} 
+}

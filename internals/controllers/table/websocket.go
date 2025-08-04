@@ -114,7 +114,7 @@ func (c *TableClient) readPump() {
             for client := range c.table.clients {
                 client.send <- jsonMenuMsg
             }
-            // Add more cases as needed
+            
         default:
             log.Printf("Unknown message type: %s", msg.Type)
         }

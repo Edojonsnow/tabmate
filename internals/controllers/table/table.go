@@ -4,8 +4,6 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"tabmate/internals/auth"
-	usercontroller "tabmate/internals/controllers/user"
 	tabmate "tabmate/internals/store/postgres"
 
 	"github.com/gin-gonic/gin"
@@ -84,22 +82,17 @@ func GetTables(queries tabmate.Querier) gin.HandlerFunc {
 
 func CreateTable(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get user info from token
-		token, err := c.Cookie("auth_token")
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
+		// Retrieve user_id from context
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in context"})
 			return
 		}
 
-		userInfo, err := auth.GetUserInfo(c, token)
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-			return
-		}
-		// Get User from memory cache
-		user, exists := usercontroller.GetUserFromCache(userInfo.Email)
-		if !exists {
-			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		// Type assert userID to pgtype.UUID
+		pgUserID, ok := userID.(pgtype.UUID)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assert user ID type"})
 			return
 		}
 		// Generate a new table code
@@ -107,18 +100,18 @@ func CreateTable(queries tabmate.Querier) gin.HandlerFunc {
 
 		// Create table in database
 		dbTable, err := queries.CreateTable(c, tabmate.CreateTableParams{
-			CreatedBy:      user.ID,
+			CreatedBy:      pgUserID,
 			TableCode:      newTableCode,
 			Name:           pgtype.Text{String: "New Table", Valid: true},
 			RestaurantName: pgtype.Text{String: "Restaurant", Valid: true},
 			Status:         "open",
 			MenuUrl:        pgtype.Text{Valid: false},
-			Members:        []int32{int32(uuid.MustParse(userInfo.Sub).ID())},
+			Members:        []int32{int32(pgUserID.Bytes[15])},
 		})
 		if err != nil {
-			log.Println(err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create table"})
-			return
+			log.Printf("Database error creating table: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create table due to a database error. Please try again later."})
+		return
 		}
 
 		// Create new table instance
@@ -132,6 +125,64 @@ func CreateTable(queries tabmate.Querier) gin.HandlerFunc {
 			"code": newTableCode,
 			"id":   dbTable.ID,
 		})
+	}
+}
+
+func AddItemToTable(queries tabmate.Querier) gin.HandlerFunc{
+	return func (c *gin.Context)  {
+		// Retrieve user_id from context
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in context"})
+			return
+		}
+
+		// Type assert userID to pgtype.UUID
+		pgUserID, ok := userID.(pgtype.UUID)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assert user ID type"})
+			return
+		}
+
+		var req tabmate.AddItemToTableParams
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+		// Set default values for fields not provided by the frontend
+		if req.Quantity == 0 {
+			req.Quantity = 1 // Default quantity to 1
+		}
+		if !req.Description.Valid {
+			req.Description = pgtype.Text{String: "", Valid: false} // Default empty description
+		}
+		if !req.OriginalParsedText.Valid {
+			req.OriginalParsedText = pgtype.Text{String: req.Name, Valid: true} // Default to item name
+		}
+
+		// Set the AddedByUserID from the context
+		req.AddedByUserID = pgUserID
+
+		new_item, err := queries.AddItemToTable(c, req)
+		if err != nil {
+			log.Printf("Database error adding item to table: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add item to table due to a database error. Please try again later."})
+			return
+		}
+
+		c.JSON(http.StatusOK, new_item)
+	}
+}
+
+func ListItemsInTable(queries tabmate.Querier) gin.HandlerFunc{
+	return func(c *gin.Context) {
+		code := c.Param("code")
+		items, err := queries.ListItemsInTable(c, code)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list items in table"})
+			return
+		}
+		c.JSON(http.StatusOK, items)
 	}
 }
 

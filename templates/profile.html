@@ -107,7 +107,8 @@
               console.log(response);
 
               if (!response.ok) {
-                throw new Error("Failed to create table");
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Failed to create table");
               }
 
               const data = await response.json();
@@ -117,8 +118,7 @@
               console.error("Error creating table:", error);
               const errorDiv = document.getElementById("tableError");
               if (errorDiv) {
-                errorDiv.textContent =
-                  "Error creating table. Please try again.";
+                errorDiv.textContent = error.message;
                 errorDiv.style.display = "block";
               }
             }

@@ -11,6 +11,8 @@ import (
 )
 
 type Querier interface {
+	// Adds a single item to a table.
+	AddItemToTable(ctx context.Context, arg AddItemToTableParams) (Items, error)
 	// Appends a new member_id to the members array if not already present.
 	AddMemberToTable(ctx context.Context, arg AddMemberToTableParams) (Tables, error)
 	// Adds a user to a table with an optional role, defaulting is_settled to false.
@@ -50,7 +52,7 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id pgtype.UUID) (Users, error)
 	ListAllUsers(ctx context.Context) ([]Users, error)
 	// Retrieves all the items in a table.
-	ListItemsInTable(ctx context.Context, tableID pgtype.UUID) ([]Items, error)
+	ListItemsInTable(ctx context.Context, tableCode string) ([]Items, error)
 	// Retrieves all membership records for a specific table_id.
 	ListMembersByTableID(ctx context.Context, tableID pgtype.UUID) ([]TableMembers, error)
 	// Retrieves all members of a specific table_id and include their user details.

@@ -10,7 +10,7 @@ import (
 
 type Items struct {
 	ID                 pgtype.UUID        `json:"id"`
-	TableID            pgtype.UUID        `json:"table_id"`
+	TableCode          string             `json:"table_code"`
 	AddedByUserID      pgtype.UUID        `json:"added_by_user_id"`
 	Name               string             `json:"name"`
 	Price              pgtype.Numeric     `json:"price"`

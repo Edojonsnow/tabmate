@@ -38,10 +38,27 @@
     <div id="messages"></div>
     <input type="text" id="messageInput" placeholder="Type a message..." />
     <button onclick="sendMessage()">Send</button>
-    <div onclick="addItem(event)" id="item-name">Jollof rice</div>
-    <div onclick="addItem(event)" id="item-name">Fried rice</div>
-    <div onclick="addItem(event)" id="item-name">Goat meat</div>
-    <div onclick="addItem(event)" id="item-name">Asun</div>
+    <script>
+      const dishes = [
+        { dish_name: "Jollof rice", price: 1500 },
+        { dish_name: "Fried rice", price: 1800 },
+        { dish_name: "Goat meat", price: 2500 },
+        { dish_name: "Asun", price: 2000 },
+      ];
+
+      // Generate divs for each dish
+      dishes.forEach((dish) => {
+        const div = document.createElement("div");
+        div.textContent = `${dish.dish_name} - ₦${dish.price}`;
+        div.onclick = (e) => addItem(e, dish);
+        div.style.cursor = "pointer";
+        div.style.backgroundColor = "bisque";
+        div.style.margin = "4px";
+        div.style.padding = "4px";
+        div.style.width = "fit-content";
+        document.body.appendChild(div);
+      });
+    </script>
 
     <div>
       <h3>
@@ -54,34 +71,149 @@
         </button>
       </h3>
       <ul id="userList"></ul>
-      <div style="display: flex; gap: 20px" id="userMenu"></div>
+      <div style="display: flex; gap: 20px" id="user-menu-{{.userID}}"></div>
     </div>
 
     <script>
       // Declare usernames at a higher scope so it is accessible outside functions
       let usernames = [];
+      let items = [];
 
       // Get table code from URL or generate a new one
       const urlParams = new URLSearchParams(window.location.search);
       let tableCode = urlParams.get("code");
-
-      if (!tableCode) {
-        // Generate a random 6-character code
-        tableCode = Math.random().toString(36).substring(2, 8);
-        // Update URL with the new code
-        window.history.replaceState({}, "", `?code=${tableCode}`);
-      }
-
-      document.getElementById("tableCode").textContent = tableCode;
-
       const ws = new WebSocket(
         `ws://${window.location.host}/ws/table/${tableCode}`
       );
 
-      ws.onopen = function () {
+      async function initializeTable() {
+        if (!tableCode) {
+          // If no tableCode in URL, create a new table
+          try {
+            const response = await fetch("/api/create-table", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            });
+            const data = await response.json();
+            if (response.ok) {
+              tableCode = data.code; // Use the code returned by the API
+              window.history.replaceState({}, "", `?code=${tableCode}`);
+              console.log("New table created with code:", tableCode);
+            } else {
+              console.error("Failed to create table:", data.error);
+              alert("Failed to create table: " + data.error);
+              return;
+            }
+          } catch (error) {
+            console.error("Error creating table:", error);
+            alert("Error creating table. Please check console.");
+            return;
+          }
+        }
+
+        document.getElementById("tableCode").textContent = tableCode;
+
+        ws.onopen = async function () {
+          addMessage("Connected to WebSocket");
+          // Fetch users after connection is established
+          await fetchConnectedUsers();
+        };
+
+        ws.onmessage = async function (event) {
+          const msg = JSON.parse(event.data);
+
+          if (msg.type === "menu_add") {
+            // Add item to the correct user's menu
+            const userListMenu = document.getElementById(
+              `menu-list-${msg.username}`
+            );
+            if (userListMenu) {
+              const item = document.createElement("li");
+              item.textContent = msg.item;
+              userListMenu.appendChild(item);
+            }
+            return; // Don't treat as chat
+          }
+
+          // Default: treat as chat message
+          addMessage(`${msg.SenderID}: ${msg.Content}`);
+
+          // Check if this is a join/leave message and update user list
+          if (
+            msg.Content &&
+            (msg.Content.includes("joined") ||
+              msg.Content.includes("left") ||
+              msg.Content.includes("disconnected"))
+          ) {
+            console.log("User list change detected, fetching updated list...");
+            await fetchConnectedUsers();
+          }
+        };
+
+        ws.onclose = function () {
+          addMessage("Disconnected from WebSocket");
+        };
+
+        ws.onerror = function (error) {
+          console.error("WebSocket error:", error);
+          addMessage(`Error: ${error.message || "Connection failed"}`);
+        };
+      }
+
+      function updateUserList(newUsernames) {
+        usernames = newUsernames;
+        const userList = document.getElementById("userList");
+        userList.innerHTML = "";
+
+        // Clear and rebuild the userMenu
+        const userMenu = document.getElementById("user-menu-{{.userID}}");
+        userMenu.innerHTML = "";
+
+        if (usernames.length === 0) {
+          const li = document.createElement("li");
+          li.textContent = "No users connected";
+          userList.appendChild(li);
+        } else {
+          usernames.forEach((username) => {
+            // Add to userList
+            const li = document.createElement("li");
+            li.textContent = username;
+            userList.appendChild(li);
+
+            // Create a column for each user in the menu
+            const userCol = document.createElement("div");
+            userCol.className = "user-menu-column";
+            userCol.style.display = "flex";
+            userCol.style.flexDirection = "column";
+            userCol.style.alignItems = "center";
+            userCol.style.minWidth = "120px";
+
+            const userHeader = document.createElement("h1");
+            userHeader.textContent = username;
+            userHeader.style.fontSize = "1.2em";
+            userHeader.style.marginBottom = "8px";
+            userCol.appendChild(userHeader);
+
+            const userListMenu = document.createElement("ul");
+            userListMenu.id = `menu-list-${username}`;
+            userListMenu.style.listStyle = "none";
+            userListMenu.style.padding = "0";
+            userCol.appendChild(userListMenu);
+
+            userMenu.appendChild(userCol);
+          });
+        }
+      }
+
+      initializeTable(); // Call the initialization function
+
+      ws.onopen = async function () {
         addMessage("Connected to WebSocket");
         // Fetch users after connection is established
-        fetchConnectedUsers();
+        await fetchConnectedUsers();
+        await fetchAllItemsInTable();
       };
 
       ws.onmessage = function (event) {
@@ -138,59 +270,64 @@
         }
       }
 
-      function updateUserList(newUsernames) {
-        usernames = newUsernames;
-        const userList = document.getElementById("userList");
-        userList.innerHTML = "";
+      async function fetchAllItemsInTable() {
+        try {
+          const response = await fetch(`/api/tables/${tableCode}/table-items`);
+          const data = await response.json();
 
-        // Clear and rebuild the userMenu
-        const userMenu = document.getElementById("userMenu");
-        userMenu.innerHTML = "";
+          console.log("Data:", data);
 
-        if (usernames.length === 0) {
-          const li = document.createElement("li");
-          li.textContent = "No users connected";
-          userList.appendChild(li);
-        } else {
-          usernames.forEach((username) => {
-            // Add to userList
-            const li = document.createElement("li");
-            li.textContent = username;
-            userList.appendChild(li);
-
-            // Create a column for each user in the menu
-            const userCol = document.createElement("div");
-            userCol.className = "user-menu-column";
-            userCol.style.display = "flex";
-            userCol.style.flexDirection = "column";
-            userCol.style.alignItems = "center";
-            userCol.style.minWidth = "120px";
-
-            const userHeader = document.createElement("h1");
-            userHeader.textContent = username;
-            userHeader.style.fontSize = "1.2em";
-            userHeader.style.marginBottom = "8px";
-            userCol.appendChild(userHeader);
-
-            const userListMenu = document.createElement("ul");
-            userListMenu.id = `menu-list-${username}`;
-            userListMenu.style.listStyle = "none";
-            userListMenu.style.padding = "0";
-            userCol.appendChild(userListMenu);
-
-            userMenu.appendChild(userCol);
+          // Populate the items array and append to user menus
+          data.forEach((item) => {
+            items.push(item);
+            const userListMenu = document.getElementById(
+              `menu-list-{{.username}}`
+            );
+            if (userListMenu) {
+              const menuItem = document.createElement("li");
+              menuItem.textContent = item.name + " - $" + item.price;
+              userListMenu.appendChild(menuItem);
+            }
           });
+        } catch (error) {
+          console.error("Error fetching items for table:", error);
         }
       }
 
-      function updateUserMenu(itemText) {
-        const currentUsername = "{{ .username }}"; // Or your JS variable for the current user
-        const messageObj = {
-          type: "menu_add",
-          username: currentUsername,
-          item: itemText,
-        };
-        ws.send(JSON.stringify(messageObj));
+      async function addItemToDB(event, dish) {
+        try {
+          const response = await fetch(`/api/tables/add-item-to-order`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name: dish.dish_name,
+              price: dish.price,
+              table_code: tableCode,
+            }),
+          });
+          console.log("Response:", response);
+          console.log(tableCode, dish.dish_name, dish.price);
+
+          if (!response.ok) {
+            throw new Error("Failed to add item");
+          }
+
+          const result = await response.json();
+          console.log("Item added:", result);
+
+          // Also update the menu via WebSocket
+          const currentUsername = "{{ .username }}";
+          const messageObj = {
+            type: "menu_add",
+            username: currentUsername,
+            item: `${dish.dish_name} - ₦${dish.price}`,
+          };
+          ws.send(JSON.stringify(messageObj));
+        } catch (error) {
+          console.error("Error adding item:", error);
+        }
       }
 
       // Fetch users initially after connection
@@ -205,7 +342,13 @@
         messages.scrollTop = messages.scrollHeight;
       }
 
-      function addItem(event) {
+      async function addItem(event, dish) {
+        if (!dish) {
+          console.warn(
+            "addItem called without a dish object. This might be due to an old event listener."
+          );
+          return;
+        }
         // Get the clicked element
         const clickedDiv = event.target;
         // Extract the text content
@@ -217,7 +360,7 @@
         tableItem.textContent = itemText;
 
         // Append to User menu container
-        updateUserMenu(itemText);
+        await addItemToDB(event, dish);
 
         // Create a container for the username and item
         const container = document.createElement("div");

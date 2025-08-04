@@ -11,6 +11,65 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addItemToTable = `-- name: AddItemToTable :one
+INSERT INTO items (
+    table_code,
+    added_by_user_id,
+    name,
+    price,
+    quantity,
+    description,
+    original_parsed_text
+) VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7
+)
+RETURNING id, table_code, added_by_user_id, name, price, quantity, description, source, original_parsed_text, created_at, updated_at
+`
+
+type AddItemToTableParams struct {
+	TableCode          string         `json:"table_code"`
+	AddedByUserID      pgtype.UUID    `json:"added_by_user_id"`
+	Name               string         `json:"name"`
+	Price              pgtype.Numeric `json:"price"`
+	Quantity           int32          `json:"quantity"`
+	Description        pgtype.Text    `json:"description"`
+	OriginalParsedText pgtype.Text    `json:"original_parsed_text"`
+}
+
+// Adds a single item to a table.
+func (q *Queries) AddItemToTable(ctx context.Context, arg AddItemToTableParams) (Items, error) {
+	row := q.db.QueryRow(ctx, addItemToTable,
+		arg.TableCode,
+		arg.AddedByUserID,
+		arg.Name,
+		arg.Price,
+		arg.Quantity,
+		arg.Description,
+		arg.OriginalParsedText,
+	)
+	var i Items
+	err := row.Scan(
+		&i.ID,
+		&i.TableCode,
+		&i.AddedByUserID,
+		&i.Name,
+		&i.Price,
+		&i.Quantity,
+		&i.Description,
+		&i.Source,
+		&i.OriginalParsedText,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const deleteItemFromTable = `-- name: DeleteItemFromTable :exec
 DELETE FROM items
 WHERE id = $1
@@ -23,14 +82,14 @@ func (q *Queries) DeleteItemFromTable(ctx context.Context, id pgtype.UUID) error
 }
 
 const listItemsInTable = `-- name: ListItemsInTable :many
-SELECT id, table_id, added_by_user_id, name, price, quantity, description, source, original_parsed_text, created_at, updated_at FROM items
-WHERE table_id = $1
+SELECT id, table_code, added_by_user_id, name, price, quantity, description, source, original_parsed_text, created_at, updated_at FROM items
+WHERE table_code = $1
 ORDER BY created_at ASC
 `
 
 // Retrieves all the items in a table.
-func (q *Queries) ListItemsInTable(ctx context.Context, tableID pgtype.UUID) ([]Items, error) {
-	rows, err := q.db.Query(ctx, listItemsInTable, tableID)
+func (q *Queries) ListItemsInTable(ctx context.Context, tableCode string) ([]Items, error) {
+	rows, err := q.db.Query(ctx, listItemsInTable, tableCode)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +99,7 @@ func (q *Queries) ListItemsInTable(ctx context.Context, tableID pgtype.UUID) ([]
 		var i Items
 		if err := rows.Scan(
 			&i.ID,
-			&i.TableID,
+			&i.TableCode,
 			&i.AddedByUserID,
 			&i.Name,
 			&i.Price,

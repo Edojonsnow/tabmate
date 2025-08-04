@@ -35,14 +35,20 @@ func setupRouter(queries tabmate.Querier) *gin.Engine {
 		authorized.GET("/ws-test", func(c *gin.Context) {
 			username, _ := c.Get("username")
 			email, _ := c.Get("email")
-		
+			userID, _ := c.Get("user_id") // Retrieve user_id from context
+
 			c.HTML(http.StatusOK, "websocket_test.html", gin.H{
 				"username": username,
 				"email":    email,
+				"userID":   userID, // Pass user_id to the template
 			})
 		})
 
 		
+		authorized.POST("/api/create-table", tablecontroller.CreateTable(queries))
+		authorized.POST("/api/tables/add-item-to-order", tablecontroller.AddItemToTable(queries))
+		authorized.GET("/api/tables/:code/table-items", tablecontroller.ListItemsInTable(queries))
+
 	}
 	
 	
@@ -90,7 +96,7 @@ func setupRouter(queries tabmate.Querier) *gin.Engine {
 
 
 	// TABLES
-	router.POST("/api/create-table", tablecontroller.CreateTable(queries))
+
 	router.GET("/api/tables/:code", tablecontroller.GetTableHandler(queries)) //check if table exists
 	router.GET("/api/get-user", usercontroller.GetUser(queries))
 
@@ -107,4 +113,4 @@ func setupRouter(queries tabmate.Querier) *gin.Engine {
 	}
 
 	return router
-} 
+}

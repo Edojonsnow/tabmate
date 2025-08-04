@@ -3,7 +3,7 @@
 -- +goose Up
 CREATE TABLE items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    table_id UUID NOT NULL REFERENCES tables(id) ON DELETE CASCADE,
+    table_code VARCHAR(10) NOT NULL REFERENCES tables(table_code) ON DELETE CASCADE,
     added_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
     name VARCHAR(255) NOT NULL,
     price DECIMAL(10, 2) NOT NULL,
@@ -18,11 +18,11 @@ CREATE TABLE items (
 );
 
 -- Indexes for efficient querying
-CREATE INDEX IF NOT EXISTS idx_items_table_id ON items(table_id);
+CREATE INDEX IF NOT EXISTS idx_items_table_code ON items(table_code);
 CREATE INDEX IF NOT EXISTS idx_items_added_by_user_id ON items(added_by_user_id);
 
 
 -- +goose Down
 DROP INDEX IF EXISTS idx_items_added_by_user_id;
-DROP INDEX IF EXISTS idx_items_table_id;
+DROP INDEX IF EXISTS idx_items_table_code;
 DROP TABLE IF EXISTS items;
