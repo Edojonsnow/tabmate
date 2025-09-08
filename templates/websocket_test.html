@@ -490,11 +490,11 @@
             const messageObj = {
               type: "menu_remove",
               username: currentUsername,
-              item: `${dish.dish_name} - ₦${dish.price}`,
+              item: `${dish.name} - ₦${dish.price}`,
             };
 
             ws.send(JSON.stringify(messageObj));
-            addMessage(`You removed an item from your menu: ${dish.dish_name}`);
+            addMessage(`You removed an item from your menu: ${dish.name}`);
             fetchConnectedUsers();
           } else {
             console.error("Failed to remove item from database");
