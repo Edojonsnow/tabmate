@@ -30,6 +30,10 @@
         width: fit-content;
         padding: 2px;
       }
+      .remove-button {
+        background-color: red;
+        padding: 2px;
+      }
     </style>
   </head>
   <body>
@@ -49,6 +53,7 @@
       // Generate divs for each dish
       dishes.forEach((dish) => {
         const div = document.createElement("div");
+
         div.textContent = `${dish.dish_name} - ₦${dish.price}`;
         div.onclick = (e) => addItem(e, dish);
         div.style.cursor = "pointer";
@@ -56,6 +61,7 @@
         div.style.margin = "4px";
         div.style.padding = "4px";
         div.style.width = "fit-content";
+
         document.body.appendChild(div);
       });
     </script>
@@ -162,7 +168,7 @@
         };
       }
 
-      function updateUserList(newUsernames) {
+      async function updateUserList(newUsernames) {
         usernames = newUsernames;
         const userList = document.getElementById("userList");
         userList.innerHTML = "";
@@ -200,6 +206,7 @@
             userListMenu.id = `menu-list-${username}`;
             userListMenu.style.listStyle = "none";
             userListMenu.style.padding = "0";
+
             userCol.appendChild(userListMenu);
 
             userMenu.appendChild(userCol);
@@ -213,21 +220,34 @@
         addMessage("Connected to WebSocket");
         // Fetch users after connection is established
         await fetchConnectedUsers();
-        await fetchAllItemsInTable();
       };
 
-      ws.onmessage = function (event) {
+      ws.onmessage = async function (event) {
         const msg = JSON.parse(event.data);
 
         if (msg.type === "menu_add") {
-          // Add item to the correct user's menu
+          // Menu items are now created directly in addItem function
+          // This handler can be used for other users' menu updates if needed
+          return; // Don't treat as chat
+        }
+
+        if (msg.type === "menu_remove") {
+          // Remove item from the correct user's menu
           const userListMenu = document.getElementById(
             `menu-list-${msg.username}`
           );
           if (userListMenu) {
-            const item = document.createElement("li");
-            item.textContent = msg.item;
-            userListMenu.appendChild(item);
+            // Find and remove the first item that matches the text
+            const items = userListMenu.querySelectorAll("li");
+            const itemBaseName = msg.item.split(" - ")[0]; // Get item name without price
+
+            for (let item of items) {
+              const itemText = item.textContent.replace("Remove", "").trim();
+              if (itemText === itemBaseName) {
+                item.remove();
+                break; // Remove only the first matching item
+              }
+            }
           }
           return; // Don't treat as chat
         }
@@ -243,7 +263,7 @@
             msg.Content.includes("disconnected"))
         ) {
           console.log("User list change detected, fetching updated list...");
-          fetchConnectedUsers();
+          await fetchConnectedUsers();
         }
       };
 
@@ -263,7 +283,8 @@
           const data = await response.json();
 
           if (response.ok && data.usernames) {
-            updateUserList(data.usernames);
+            await updateUserList(data.usernames);
+            await fetchAllItemsInTable();
           }
         } catch (error) {
           console.error("Error fetching users:", error);
@@ -286,7 +307,18 @@
             );
             if (userListMenu) {
               const menuItem = document.createElement("li");
+              const itemRemoveButton = document.createElement("button");
+
+              menuItem.className = "item";
               menuItem.textContent = item.name + " - $" + item.price;
+              itemRemoveButton.textContent = "Remove";
+              itemRemoveButton.style.marginLeft = "10px";
+              itemRemoveButton.onclick = function (event) {
+                event.stopPropagation();
+                removeItemFromMenu(event, item);
+              };
+
+              menuItem.appendChild(itemRemoveButton);
               userListMenu.appendChild(menuItem);
             }
           });
@@ -326,13 +358,40 @@
             item: `${dish.dish_name} - ₦${dish.price}`,
           };
           ws.send(JSON.stringify(messageObj));
+
+          return result; // Return the database item with ID
         } catch (error) {
           console.error("Error adding item:", error);
+          return null; // Return null on error
         }
       }
 
-      // Fetch users initially after connection
-      // (Real-time updates will be handled via WebSocket messages)
+      async function removeItemFromDB(event, dish) {
+        try {
+          const response = await fetch(`/api/items/${dish.id}`, {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+
+          console.log("Item removed");
+
+          if (!response.ok) {
+            throw new Error();
+            ("Failed to Remove item");
+          }
+
+          const currentUsername = "{{ .username }}";
+          const messageObj = {
+            type: "menu_add",
+            username: currentUsername,
+            item: `${dish.dish_name} - ₦${dish.price}`,
+          };
+        } catch (error) {
+          console.error("Error removing item:", error);
+        }
+      }
 
       function addMessage(text) {
         const messages = document.getElementById("messages");
@@ -355,52 +414,41 @@
         // Extract the text content
         const itemText = clickedDiv.textContent;
 
-        // Create a new item element
-        const tableItem = document.createElement("li");
-        tableItem.className = "item";
-        tableItem.textContent = itemText;
+        // First add to database to get the item with ID
+        const dbItem = await addItemToDB(event, dish);
+        if (!dbItem) {
+          console.error("Failed to add item to database");
+          return;
+        }
 
-        // Append to User menu container
-        await addItemToDB(event, dish);
+        const currentUsername = "{{ .username }}";
+        const userListMenu = document.getElementById(
+          `menu-list-${currentUsername}`
+        );
 
-        // Create a container for the username and item
-        const container = document.createElement("div");
-        container.className = "item";
-        container.style.cursor = "pointer";
-        container.onclick = function () {
-          removeItem(itemText);
-        };
+        if (userListMenu) {
+          // Create a new item element for each addition
+          const tableItem = document.createElement("li");
+          const itemRemoveButton = document.createElement("button");
+          tableItem.className = "item";
+          tableItem.textContent = itemText;
+          itemRemoveButton.textContent = "Remove";
+          itemRemoveButton.style.marginLeft = "10px";
+          itemRemoveButton.onclick = function (event) {
+            event.stopPropagation();
+            removeItemFromMenu(event, dbItem);
+          };
 
-        // Add username and item text
-        container.textContent = `{{ .username }}: ${itemText}`;
+          tableItem.appendChild(itemRemoveButton);
+          userListMenu.appendChild(tableItem);
+        }
 
-        messages.appendChild(container);
+        // Add message to message container
+        addMessage(`You added an item to your menu: ${itemText}`);
 
         // Also send via WebSocket if needed
         const messageObj = {
           content: `Added item: ${itemText}`,
-        };
-        ws.send(JSON.stringify(messageObj));
-      }
-
-      function removeItem(itemText) {
-        // itemText is now passed directly as a parameter
-
-        // Find and remove the item from messages
-        const messages = document.getElementById("messages");
-        const items = messages.querySelectorAll(".item");
-
-        // Find the item that matches the text content
-        for (let item of items) {
-          if (item.textContent.includes(itemText)) {
-            messages.removeChild(item);
-            break;
-          }
-        }
-
-        // Send removal message via WebSocket
-        const messageObj = {
-          content: `Removed item: ${itemText}`,
         };
         ws.send(JSON.stringify(messageObj));
       }
@@ -417,6 +465,42 @@
           ws.send(JSON.stringify(messageObj));
           addMessage(`{{ .username }}: ${messageObj.content}`);
           input.value = "";
+        }
+      }
+
+      async function removeItemFromMenu(event, dish) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const itemId = dish.id;
+
+        try {
+          const response = await fetch(`/api/items/${itemId}`, {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+
+          if (response.ok) {
+            // Remove the UI element
+            event.target.parentElement.remove();
+
+            const currentUsername = "{{ .username }}";
+            const messageObj = {
+              type: "menu_remove",
+              username: currentUsername,
+              item: `${dish.dish_name} - ₦${dish.price}`,
+            };
+
+            ws.send(JSON.stringify(messageObj));
+            addMessage(`You removed an item from your menu: ${dish.dish_name}`);
+            fetchConnectedUsers();
+          } else {
+            console.error("Failed to remove item from database");
+          }
+        } catch (error) {
+          console.error("Error removing item:", error);
         }
       }
 

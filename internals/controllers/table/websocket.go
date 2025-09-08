@@ -114,6 +114,21 @@ func (c *TableClient) readPump() {
             for client := range c.table.clients {
                 client.send <- jsonMenuMsg
             }
+		case "menu_remove":
+            // Broadcast menu remove event
+            removeMsg := struct {
+                Type     string `json:"type"`
+                Username string `json:"username"`
+                Item     string `json:"item"`
+            }{
+                Type:     "menu_remove",
+                Username: msg.Username,
+                Item:     msg.Item,
+            }
+            jsonRemoveMsg, _ := json.Marshal(removeMsg)
+            for client := range c.table.clients {
+                client.send <- jsonRemoveMsg
+            }
         default:
             log.Printf("Unknown message type: %s", msg.Type)
         }

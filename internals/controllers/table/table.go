@@ -174,6 +174,26 @@ func AddItemToTable(queries tabmate.Querier) gin.HandlerFunc{
 	}
 }
 
+func DeleteItemFromTable(queries tabmate.Querier) gin.HandlerFunc{
+	return func(c *gin.Context){
+		itemIDStr := c.Param("id")
+
+		// Convert string to pgtype.UUID
+        var itemID pgtype.UUID
+        err := itemID.Scan(itemIDStr)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid item ID"})
+            return
+        }
+
+		err = queries.DeleteItemFromTable(c, itemID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error":"Failed to delete item"})
+			return
+		}
+	}
+}
+
 func ListItemsInTable(queries tabmate.Querier) gin.HandlerFunc{
 	return func(c *gin.Context) {
 		code := c.Param("code")

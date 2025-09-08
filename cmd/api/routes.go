@@ -48,6 +48,7 @@ func setupRouter(queries tabmate.Querier) *gin.Engine {
 		authorized.POST("/api/create-table", tablecontroller.CreateTable(queries))
 		authorized.POST("/api/tables/add-item-to-order", tablecontroller.AddItemToTable(queries))
 		authorized.GET("/api/tables/:code/table-items", tablecontroller.ListItemsWithUserDetailsInTable(queries))
+		authorized.DELETE("/api/items/:id", tablecontroller.DeleteItemFromTable(queries))
 
 	}
 	

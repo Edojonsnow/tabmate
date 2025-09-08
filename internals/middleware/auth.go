@@ -6,8 +6,8 @@ import (
 	"log"
 	"net/http"
 
-	tabmate "tabmate/internals/store/postgres"
 	"tabmate/internals/auth"
+	tabmate "tabmate/internals/store/postgres"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -57,7 +57,7 @@ func AuthMiddleware(queries tabmate.Querier) gin.HandlerFunc {
 				c.Abort()
 				return
 			}
-		}
+		}			
 
 		// Get user from database to retrieve their ID
 		user, err := queries.GetUserByCognitoSub(c, userInfo.Sub)
