@@ -33,6 +33,10 @@ type ClientMessage struct {
 
 }
 
+type CreateTableReq struct {
+	TableName string `json:"tablename" binding:"required"`
+	Restaurant string `json:"restaurant" binding:"required"`
+}
 // Map to track active tables
 var activeTables = make(map[string]*Table)
 
@@ -89,6 +93,12 @@ func CreateTable(queries tabmate.Querier) gin.HandlerFunc {
 			return
 		}
 
+		var createTableReq CreateTableReq
+		if err := c.ShouldBindJSON(&createTableReq); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
 		// Type assert userID to pgtype.UUID
 		pgUserID, ok := userID.(pgtype.UUID)
 		if !ok {
@@ -102,8 +112,8 @@ func CreateTable(queries tabmate.Querier) gin.HandlerFunc {
 		dbTable, err := queries.CreateTable(c, tabmate.CreateTableParams{
 			CreatedBy:      pgUserID,
 			TableCode:      newTableCode,
-			Name:           pgtype.Text{String: "New Table", Valid: true},
-			RestaurantName: pgtype.Text{String: "Restaurant", Valid: true},
+			Name:           pgtype.Text{String: createTableReq.TableName, Valid: true},
+			RestaurantName: pgtype.Text{String: createTableReq.Restaurant, Valid: true},
 			Status:         "open",
 			MenuUrl:        pgtype.Text{Valid: false},
 			Members:        []int32{int32(pgUserID.Bytes[15])},

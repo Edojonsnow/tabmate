@@ -90,21 +90,13 @@ func setupRouter(queries tabmate.Querier) *gin.Engine {
 		tablecontroller.ServeWsWithUser(table, c.Writer, c.Request, username.(string), email.(string))
 	})
 
-	// API ROUTES 
-
 	// USERS
 	router.POST("/api/create-user", usercontroller.CreateUser(queries))
 
 
 	// TABLES
-
 	router.GET("/api/tables/:code", tablecontroller.GetTableHandler(queries)) //check if table exists
 	router.GET("/api/get-user", usercontroller.GetUser(queries))
-
-	// Table routes
-	// router.GET("/tables", controllers.GetTables(queries))
-	// router.POST("/tables", controllers.CreateTable(queries))
-	// router.GET("/tables/:code", controllers.GetTableHandler(queries))
 
 	// Print all registered routes
 	routes := router.Routes()

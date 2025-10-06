@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"strings"
 
 	"tabmate/internals/auth"
 	tabmate "tabmate/internals/store/postgres"
@@ -17,16 +18,16 @@ import (
 func AuthMiddleware(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get the token from the cookie
-		token, err := c.Cookie("auth_token")
-		if err != nil {
-			log.Printf("No auth token found, redirecting to login")
-			c.Redirect(http.StatusFound, "/login")
-
-			return
-		}
+        authHeader := c.GetHeader("Authorization")
+        if authHeader == "" {
+            c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing Authorization header"})
+            c.Abort()
+            return
+        }
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 
 		// Verify the token using OIDC provider
-		userInfo, err := auth.GetUserInfo(context.Background(), token)
+		userInfo, err := auth.GetUserInfo(context.Background(), tokenString)
 		if err != nil {
 			log.Printf("Invalid auth token: %v, redirecting to login", err)
 			c.Redirect(http.StatusFound, "/login")
@@ -35,11 +36,11 @@ func AuthMiddleware(queries tabmate.Querier) gin.HandlerFunc {
 		}
 
 		// Check if user already exists
-		_, err = queries.GetUserByCognitoSub(c, userInfo.Sub)
+		user, err := queries.GetUserByCognitoSub(c, userInfo.Sub)
 		if err != nil {
 			// If user does not exist, create them
 			if err == sql.ErrNoRows {
-				_, err = queries.CreateUser(c, tabmate.CreateUserParams{
+				user, err = queries.CreateUser(c, tabmate.CreateUserParams{
 					Name:            pgtype.Text{String: userInfo.Name, Valid: true},
 					CognitoSub:      userInfo.Sub,
 					Email:           userInfo.Email,
@@ -58,15 +59,6 @@ func AuthMiddleware(queries tabmate.Querier) gin.HandlerFunc {
 				return
 			}
 		}			
-
-		// Get user from database to retrieve their ID
-		user, err := queries.GetUserByCognitoSub(c, userInfo.Sub)
-		if err != nil {
-			log.Printf("Error getting user by CognitoSub: %v", err)
-			c.Redirect(http.StatusFound, "/login")
-			c.Abort()
-			return
-		}
 
 		// Set user info in context
 		c.Set("username", userInfo.Name)

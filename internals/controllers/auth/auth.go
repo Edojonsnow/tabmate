@@ -38,24 +38,51 @@ func ShowLoginForm(c *gin.Context) {
 	})
 }
 
-// HandleLogin processes the login form submission
+// LoginRequest represents the JSON request from the React frontend
+type LoginRequest struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+// LoginResponse represents the JSON response to the React frontend
+type LoginResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+	Token   string `json:"token,omitempty"`
+	User    *struct {
+		ID       string `json:"id"`
+		Username string `json:"username"`
+		Email    string `json:"email"`
+	} `json:"user,omitempty"`
+}
+
+// HandleLogin processes login requests from React frontend
 func HandleLogin(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		username := c.PostForm("username")
-		password := c.PostForm("password")
+		// Parse JSON request from React frontend
+		var loginReq LoginRequest
+		if err := c.ShouldBindJSON(&loginReq); err != nil {
+			c.JSON(http.StatusBadRequest, LoginResponse{
+				Success: false,
+				Message: "Invalid request format: " + err.Error(),
+			})
+			return
+		}
 
-		if username == "" || password == "" {
-			c.HTML(http.StatusBadRequest, "login.html", gin.H{
-				"error": "Username and password are required",
+		if loginReq.Username == "" || loginReq.Password == "" {
+			c.JSON(http.StatusBadRequest, LoginResponse{
+				Success: false,
+				Message: "Username and password are required",
 			})
 			return
 		}
 
 		// Authenticate with Cognito
-		authResult, err := actions.SignIn(c.Request.Context(), username, password)
+		authResult, err := actions.SignIn(c.Request.Context(), loginReq.Username, loginReq.Password)
 		if err != nil {
-			c.HTML(http.StatusUnauthorized, "login.html", gin.H{
-				"error": "Invalid username or password",
+			c.JSON(http.StatusUnauthorized, LoginResponse{
+				Success: false,
+				Message: "Invalid username or password",
 			})
 			return
 		}
@@ -63,23 +90,43 @@ func HandleLogin(queries tabmate.Querier) gin.HandlerFunc {
 		// Get user info from token
 		userInfo, err := auth.GetUserInfo(context.Background(), *authResult.IdToken)
 		if err != nil {
-			c.HTML(http.StatusUnauthorized, "login.html", gin.H{
-				"error": "Failed to get user information",
+			c.JSON(http.StatusUnauthorized, LoginResponse{
+				Success: false,
+				Message: "Failed to get user information",
 			})
 			return
 		}
 
 		// Get user from database and cache it
 		user, err := queries.GetUserByEmail(c, userInfo.Email)
-		if err == nil {
-			usercontroller.UpdateUserCache(user)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, LoginResponse{
+				Success: false,
+				Message: "Failed to retrieve user data",
+			})
+			return
 		}
+		
+		usercontroller.UpdateUserCache(user)
 
-		// Store the ID token in a cookie
+		// Set the token as an HTTP-only cookie for security
 		c.SetCookie("auth_token", *authResult.IdToken, 3600, "/", "", false, true)
 
-		// Redirect to profile page
-		c.Redirect(http.StatusFound, "/profile")
+		// Return success response with token and user info
+		c.JSON(http.StatusOK, LoginResponse{
+			Success: true,
+			Message: "Login successful",
+			Token:   *authResult.IdToken,
+			User: &struct {
+				ID       string `json:"id"`
+				Username string `json:"username"`
+				Email    string `json:"email"`
+			}{
+				ID:       user.ID.String(),
+				Username: loginReq.Username,
+				Email:    user.Email,
+			},
+		})
 	}
 }
 
