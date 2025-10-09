@@ -2,12 +2,14 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	tabmate "tabmate/internals/store/postgres"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -93,7 +95,11 @@ func CreateTable(queries tabmate.Querier) gin.HandlerFunc {
 			return
 		}
 
-		var createTableReq CreateTableReq
+		var createTableReq struct {
+			TableName string `json:"tablename" binding:"required"`
+			Restaurant string `json:"restaurant" binding:"required"`
+		}
+
 		if err := c.ShouldBindJSON(&createTableReq); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 			return
@@ -124,6 +130,16 @@ func CreateTable(queries tabmate.Querier) gin.HandlerFunc {
 		return
 		}
 
+		_, err = queries.AddUserToTable(c, tabmate.AddUserToTableParams{
+			TableID: dbTable.ID,
+			UserID:  pgUserID,
+			Role:    "host",
+		})
+		if err != nil {
+		  c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add user to table due to a database error. Please try again later."})
+			return
+		}
+
 		// Create new table instance
 		newTable := NewTable(dbTable.ID.Bytes, newTableCode)
 		activeTables[newTableCode] = newTable
@@ -134,8 +150,79 @@ func CreateTable(queries tabmate.Querier) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"code": newTableCode,
 			"id":   dbTable.ID,
+			"name": createTableReq.TableName,
+			"restaurant": createTableReq.Restaurant,
 		})
 	}
+}
+
+func JoinTable(queries tabmate.Querier) gin.HandlerFunc { 
+		return func (c *gin.Context ){
+			code := c.Param("code")
+			userId, exists := c.Get( "user_id")
+			if !exists {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in context"})
+				return
+			}
+			// Type assert userId to pgtype.UUID
+			pgUserID := userId.(pgtype.UUID)
+
+			// Fetch Table from Database
+			dbTable, err := queries.GetTableByCode(c, code)
+			if err != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Table not found in database"})
+				return
+			}
+
+			// Get or create table instance
+			table := GetTable(code)
+			if table == nil {
+				table = NewTable(dbTable.ID.Bytes, code)
+				activeTables[code] = table
+				go table.Run()
+			}
+
+			// Check if user is already a member of the table
+			user_exists, err := userIsMember(c, queries, dbTable.ID, pgUserID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+				return
+			}
+			if !user_exists {
+				_, err := queries.AddUserToTable(c, tabmate.AddUserToTableParams{
+					TableID: dbTable.ID,
+					UserID:  pgUserID,
+					Role:    "guest",
+				})
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add user"})
+					return
+				}
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+			"code": code,
+			"id":   dbTable.ID,
+			// "usernames": usernames,
+			"tablename": dbTable.Name,
+			"restaurant": dbTable.RestaurantName,
+		})
+
+		}
+}
+
+func userIsMember(ctx context.Context, queries tabmate.Querier, tableID, userID pgtype.UUID) (bool, error) {
+	_, err := queries.GetTableMember(ctx, tabmate.GetTableMemberParams{
+		TableID: tableID,
+		UserID:  userID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil // user not found, but no problem
+		}
+		return false, err // actual DB error
+	}
+	return true, nil
 }
 
 func AddItemToTable(queries tabmate.Querier) gin.HandlerFunc{
@@ -231,7 +318,11 @@ func ListItemsWithUserDetailsInTable(queries tabmate.Querier) gin.HandlerFunc{
 func GetTableHandler(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		code := c.Param("code")
-		
+
+		if code == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Table code is required"})
+			return
+		}
 		// Check if table exists in database
 		dbTable, err := queries.GetTableByCode(c, code)
 		if err != nil {
@@ -246,8 +337,6 @@ func GetTableHandler(queries tabmate.Querier) gin.HandlerFunc {
 			activeTables[code] = table
 			go table.Run()
 		}
-
-
 		// Get connected usernames
 		usernames := table.GetUsernames()
 		log.Printf("Connected usernames for table %s: %v", code, usernames)
@@ -256,9 +345,12 @@ func GetTableHandler(queries tabmate.Querier) gin.HandlerFunc {
 			"code": code,
 			"id":   dbTable.ID,
 			"usernames": usernames,
+			"tablename": dbTable.Name,
+			"restaurant": dbTable.RestaurantName,
 		})
 	}
 }
+
 
 func (t *Table) GetUsernames() []string {
     usernames := []string{}
