@@ -10,6 +10,7 @@ import (
 	tabmate "tabmate/internals/store/postgres"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 func setupRouter(queries tabmate.Querier) *gin.Engine {
@@ -71,24 +72,40 @@ func setupRouter(queries tabmate.Querier) *gin.Engine {
 	router.GET("/logout", authcontroller.HandleLogout)
 
 	// WebSocket route with authentication
-	authorized.GET("/ws/table/:code", func(c *gin.Context) {
+	router.GET("/ws/table/:code", func(c *gin.Context) {
 		code := c.Param("code")
-		username, _ := c.Get("username")
-		email, _ := c.Get("email")
-		
-		log.Printf("WebSocket connection attempt for table code: %s by user: %s", code, username)
-		
-		table := tablecontroller.GetTable(code)
-		if table == nil {
-			log.Printf("Table not found in activeTables map for code: %s", code)
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "Table not found",
-			})
-			return
-		}
-		
-		log.Printf("Found table in activeTables map, establishing WebSocket connection for user: %s", username)
-		tablecontroller.ServeWsWithUser(table, c.Writer, c.Request, username.(string), email.(string))
+	token := c.Query("token")
+
+	if token == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing token"})
+		return
+	}
+	// ✅ Verify OIDC token & get or create user
+	user := middleware.VerifyOIDCToken(queries, token)
+
+	// Handle invalid or missing user
+	if !user.ID.Valid {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or missing user"})
+		return
+	}
+	// Convert UUID to string
+	userIDStr := uuid.UUID(user.ID.Bytes).String()
+
+	log.Printf("WebSocket connection attempt for table code: %s by user: %s (%s)", code, user.Name.String, userIDStr)
+
+	table := tablecontroller.GetTable(code)
+	if table == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Table not found"})
+		return
+	}
+
+	tablecontroller.ServeWsWithUser(
+		table,
+		c.Writer,
+		c.Request,
+		user.Name.String,
+		user.Email,
+	)
 	})
 
 	// USERS

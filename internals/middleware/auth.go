@@ -68,6 +68,36 @@ func AuthMiddleware(queries tabmate.Querier) gin.HandlerFunc {
 	}
 }
 
+func VerifyOIDCToken(queries tabmate.Querier, tokenString string) tabmate.Users {
+    userInfo, err := auth.GetUserInfo(context.Background(), tokenString)
+    if err != nil {
+        log.Printf("Invalid OIDC token: %v", err)
+        return tabmate.Users{}
+    }
+
+    // Check if user exists in DB
+    user, err := queries.GetUserByCognitoSub(context.Background(), userInfo.Sub)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            user, err = queries.CreateUser(context.Background(), tabmate.CreateUserParams{
+                Name:       pgtype.Text{String: userInfo.Name, Valid: true},
+                CognitoSub: userInfo.Sub,
+                Email:      userInfo.Email,
+            })
+            if err != nil {
+                log.Printf("Error creating user: %v", err)
+                return user
+            }
+        } else {
+            log.Printf("Error checking existing user: %v", err)
+            return user
+        }
+    }
+	
+
+    return user
+}
+
 // RedirectIfAuthenticated redirects to /profile if user is already logged in
 func RedirectIfAuthenticated() gin.HandlerFunc {
 	return func(c *gin.Context) {
