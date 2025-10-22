@@ -46,10 +46,11 @@ type LoginRequest struct {
 
 // LoginResponse represents the JSON response to the React frontend
 type LoginResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message,omitempty"`
-	Token   string `json:"token,omitempty"`
-	User    *struct {
+	Success     bool   `json:"success"`
+	Message     string `json:"message,omitempty"`
+	Token       string `json:"token,omitempty"`
+	AccessToken string `json:"access_token,omitempty"`
+	User        *struct {
 		ID       string `json:"id"`
 		Username string `json:"username"`
 		Email    string `json:"email"`
@@ -117,6 +118,7 @@ func HandleLogin(queries tabmate.Querier) gin.HandlerFunc {
 			Success: true,
 			Message: "Login successful",
 			Token:   *authResult.IdToken,
+			AccessToken: *authResult.AccessToken,
 			User: &struct {
 				ID       string `json:"id"`
 				Username string `json:"username"`
