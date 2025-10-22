@@ -52,6 +52,8 @@ func setupRouter(queries tabmate.Querier) *gin.Engine {
 		authorized.DELETE("/api/items/:id", tablecontroller.DeleteItemFromTable(queries))
 		authorized.POST("/api/join-table/:code", tablecontroller.JoinTable(queries)) //join table by code
 
+		authorized.GET("/api/get-user-tables", tablecontroller.ListTablesForUser(queries)) //list tables for user
+
 	}
 	
 	

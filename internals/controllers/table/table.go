@@ -149,7 +149,7 @@ func CreateTable(queries tabmate.Querier) gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"code": newTableCode,
-			"id":   dbTable.ID,
+			"id":   uuid.UUID(dbTable.ID.Bytes).String(),
 			"name": createTableReq.TableName,
 			"restaurant": createTableReq.Restaurant,
 		})
@@ -202,7 +202,7 @@ func JoinTable(queries tabmate.Querier) gin.HandlerFunc {
 
 			c.JSON(http.StatusOK, gin.H{
 			"code": code,
-			"id":   dbTable.ID,
+			"id":   uuid.UUID(dbTable.ID.Bytes).String(),
 			// "usernames": usernames,
 			"tablename": dbTable.Name,
 			"restaurant": dbTable.RestaurantName,
@@ -314,6 +314,32 @@ func ListItemsWithUserDetailsInTable(queries tabmate.Querier) gin.HandlerFunc{
 		c.JSON(http.StatusOK, items)
 	}
 }
+
+func ListTablesForUser(queries tabmate.Querier ) gin.HandlerFunc{
+	return func(c *gin.Context){
+		// Retrieve user_id from context
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in context"})
+			return
+		}
+
+		// Type assert userID to pgtype.UUID
+		pgUserID, ok := userID.(pgtype.UUID)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assert user ID type"})
+			return
+		}
+
+		tables, err := queries.ListTablesWithMembershipStatusForUser(c, pgUserID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list tables with membership status for user"})
+			return
+		}
+		c.JSON(http.StatusOK, tables)
+	}
+}
+
 
 func GetTableHandler(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
