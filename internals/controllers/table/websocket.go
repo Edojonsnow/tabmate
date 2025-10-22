@@ -129,6 +129,23 @@ func (c *TableClient) readPump() {
             for client := range c.table.clients {
                 client.send <- jsonRemoveMsg
             }
+		case "request_usernames":
+			usernames := c.table.GetUsernames()
+			usernamesMsg := struct {
+				Type      string   `json:"type"`
+				Usernames []string `json:"usernames"`
+			}{
+				Type:      "user_list",
+				Usernames: usernames,
+			}
+			jsonMsg, err := json.Marshal(usernamesMsg)
+			if err != nil {
+				log.Printf("Failed to marshal usernames list: %v", err)
+				continue
+			}
+
+			// Send back only to the requesting client
+			c.send <- jsonMsg
         default:
             log.Printf("Unknown message type: %s", msg.Type)
         }

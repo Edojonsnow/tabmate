@@ -174,13 +174,6 @@ func JoinTable(queries tabmate.Querier) gin.HandlerFunc {
 				return
 			}
 
-			// Get or create table instance
-			table := GetTable(code)
-			if table == nil {
-				table = NewTable(dbTable.ID.Bytes, code)
-				activeTables[code] = table
-				go table.Run()
-			}
 
 			// Check if user is already a member of the table
 			user_exists, err := userIsMember(c, queries, dbTable.ID, pgUserID)
@@ -202,7 +195,7 @@ func JoinTable(queries tabmate.Querier) gin.HandlerFunc {
 
 			c.JSON(http.StatusOK, gin.H{
 			"code": code,
-			"id":   uuid.UUID(dbTable.ID.Bytes).String(),
+			"id":   uuid.UUID(dbTable.ID.Bytes).String(), 
 			// "usernames": usernames,
 			"tablename": dbTable.Name,
 			"restaurant": dbTable.RestaurantName,
