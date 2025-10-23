@@ -115,6 +115,29 @@ func (c *TableClient) readPump() {
                     }
             }
 
+		case "user_disconnected":
+			// Broadcast user disconnected event
+			// 1️⃣ Remove client from connected list
+			log.Printf("%s disconnected", msg.Username )
+			delete(c.table.clients, c)
+
+			// 2️⃣ Broadcast updated connected usernames to everyone
+			usernames := c.table.GetUsernames()
+			msg := struct {
+				Type      string   `json:"type"`
+				Usernames []string `json:"usernames"`
+			}{
+				Type:      "user_list",
+				Usernames: usernames,
+			}
+			jsonMsg, _ := json.Marshal(msg)
+
+			for client := range c.table.clients {
+				client.send <- jsonMsg
+			}
+
+			// 3️⃣ Close connection
+			c.conn.Close()
 
         case "menu_add":
             // Broadcast menu add event
