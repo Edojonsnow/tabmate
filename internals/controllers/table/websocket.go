@@ -99,6 +99,23 @@ func (c *TableClient) readPump() {
                     client.send <- jsonMsg
                 }
             }
+		case "user_joined":
+            // Broadcast user joined event
+            joinMsg := struct {
+                Type     string `json:"type"`
+                Username string `json:"username"`
+            }{
+                Type:     "user_joined",
+                Username: msg.Username,
+            }
+            jsonJoinMsg, _ := json.Marshal(joinMsg)
+            for client := range c.table.clients {
+                    if client != c {     // ✅ don't send back to the one who joined
+                        client.send <- jsonJoinMsg
+                    }
+            }
+
+
         case "menu_add":
             // Broadcast menu add event
             menuMsg := struct {
@@ -143,7 +160,6 @@ func (c *TableClient) readPump() {
 				log.Printf("Failed to marshal usernames list: %v", err)
 				continue
 			}
-
 			// Send back only to the requesting client
 			c.send <- jsonMsg
         default:
@@ -173,23 +189,25 @@ func (c *TableClient) writePump() {
 				return
 			}
 
-			w, err := c.conn.NextWriter(websocket.TextMessage)
-			if err != nil {
-				return
-			}
-			log.Printf("Broadcasting message to client %s: %s", c.userID, string(message))
-			w.Write(message)
+			// w, err := c.conn.NextWriter(websocket.TextMessage)
+			// if err != nil {
+			// 	return
+			// }
+			// log.Printf("Broadcasting message to client %s: %s", c.userID, string(message))
+			// w.Write(message)
 
 			// Add queued chat messages to the current websocket message.
-			n := len(c.send)
-			for i := 0; i < n; i++ {
-				w.Write(newline)
-				w.Write(<-c.send)
-			}
+			// n := len(c.send)
+			// for i := 0; i < n; i++ {
+			// 	w.Write(newline)
+			// 	w.Write(<-c.send)
+			// }
+			err := c.conn.WriteMessage(websocket.TextMessage, message)
+            if err != nil {
+                log.Printf("write error: %v", err)
+                return
+            }
 
-			if err := w.Close(); err != nil {
-				return
-			}
 		case <-ticker.C:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
