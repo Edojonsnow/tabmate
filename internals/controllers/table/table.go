@@ -204,6 +204,24 @@ func JoinTable(queries tabmate.Querier) gin.HandlerFunc {
 		}
 }
 
+func FetchTableMembers(queries tabmate.Querier) gin.HandlerFunc{
+	return func (c *gin.Context){
+		code := c.Param("code")
+		dbTable, err := queries.GetTableByCode(c, code)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Table not found in database"})
+			return
+		}
+
+		table_members, err := queries.ListMembersWithUserDetailsByTableID(c, dbTable.ID)
+		if err != nil {
+		  c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch table members"})
+		}
+
+		c.JSON(http.StatusOK, table_members)
+	}
+}
+
 func userIsMember(ctx context.Context, queries tabmate.Querier, tableID, userID pgtype.UUID) (bool, error) {
 	_, err := queries.GetTableMember(ctx, tabmate.GetTableMemberParams{
 		TableID: tableID,
@@ -329,6 +347,8 @@ func ListTablesForUser(queries tabmate.Querier ) gin.HandlerFunc{
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list tables with membership status for user"})
 			return
 		}
+		
+
 		c.JSON(http.StatusOK, tables)
 	}
 }
