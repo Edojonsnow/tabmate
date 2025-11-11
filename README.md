@@ -112,7 +112,7 @@ Follow these instructions to get the backend running on your local machine for d
       ```
     - Apply all migrations:
       ```bash
-      goose -dir "./migrations" postgres "$DB_SOURCE" up
+      goose up postgres "$DB_SOURCE" -dir ./migrations
       ```
 
 5.  **Generate Go code from SQL:**
