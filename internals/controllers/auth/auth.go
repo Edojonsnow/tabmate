@@ -44,6 +44,14 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
+type SignUpRequest struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+	Email    string `json:"email" binding:"required"`
+	PhoneNumber string `json:"phone_number" binding:"required"`
+	FullName string `json:"full_name" binding:"required"`
+}
+
 // LoginResponse represents the JSON response to the React frontend
 type LoginResponse struct {
 	Success     bool   `json:"success"`
@@ -159,23 +167,21 @@ func HandleProfile(c *gin.Context) {
 
 // HandleSignup processes the signup form submission
 func HandleSignup(c *gin.Context) {
-	username := c.PostForm("username")
-	password := c.PostForm("password")
-	email := c.PostForm("email")
-	name := c.PostForm("name")
-	phone := c.PostForm("phone")
 
-	if username == "" || password == "" || email == "" || name == "" || phone == "" {
-		c.HTML(http.StatusBadRequest, "signup.html", gin.H{
-			"error": "All fields are required",
+	var signupReq SignUpRequest
+
+
+	if err := c.ShouldBindJSON(&signupReq); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid request format: " + err.Error(),
 		})
 		return
 	}
 
 	// Sign up with Cognito
-	confirmed , err := actions.SignUp(c.Request.Context(), username, password, email, phone)
+	confirmed , err := actions.SignUp(c.Request.Context(), signupReq.Username, signupReq.Password, signupReq.Email, signupReq.PhoneNumber)
 	if err != nil {
-		c.HTML(http.StatusBadRequest, "signup.html", gin.H{
+		c.JSON(http.StatusBadRequest, gin.H{
 			"error": fmt.Sprintf("Failed to create account: %v", err),
 		})
 		return
@@ -185,39 +191,36 @@ func HandleSignup(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/login")
 	} else {
 		// If user needs to confirm their email, show confirmation page
-		c.HTML(http.StatusOK, "confirm_signup.html", gin.H{
-			"username": username,
-			"email":    email,
+		c.JSON(http.StatusOK, gin.H{
+			"username": signupReq.Username,
+			"email":    signupReq.Email,
 		})
 	}
 }
 
 // HandleConfirmSignup processes the signup confirmation
 func HandleConfirmSignup(c *gin.Context) {
-	username := c.PostForm("username")
-	// email := c.PostForm("email")
-	code := c.PostForm("code")
 
-	if username == "" || code == "" {
-		c.HTML(http.StatusBadRequest, "confirm_signup.html", gin.H{
-			"error": "Username and confirmation code are required",
-		})
-		return
+
+	var confirmReq struct {
+		Username string `json:"username"`
+		Code     string `json:"code"`
 	}
 
+
 	// Confirm the signup with Cognito
-	err := actions.ConfirmSignUp(c.Request.Context(), username, code)
+	err := actions.ConfirmSignUp(c.Request.Context(), confirmReq.Username, confirmReq.Code)
 	if err != nil {
-		c.HTML(http.StatusBadRequest, "confirm_signup.html", gin.H{
+		c.JSON(http.StatusBadRequest,  gin.H{
 			"error": fmt.Sprintf("Failed to confirm signup: %v", err),
 		})
 		return
 	}
 
-
-
 	// Redirect to login after successful confirmation
-	c.Redirect(http.StatusFound, "/login")
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Account confirmed successfully",
+	})
 }
 
 // HandleForgotPassword shows the forgot password form
