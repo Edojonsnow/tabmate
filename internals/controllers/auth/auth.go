@@ -2,7 +2,10 @@ package controllers
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
+	"log"
 	"net/http"
 
 	"tabmate/internals/auth"
@@ -10,6 +13,8 @@ import (
 	tabmate "tabmate/internals/store/postgres"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 var (
@@ -109,12 +114,26 @@ func HandleLogin(queries tabmate.Querier) gin.HandlerFunc {
 		// Get user from database and cache it
 		user, err := queries.GetUserByEmail(c, userInfo.Email)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, LoginResponse{
-				Success: false,
-				Message: "Failed to retrieve user data",
-			})
-			return
-		}
+			fmt.Print("ERR", err)
+			// If user does not exist, create them
+		    if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows){
+				user, err = queries.CreateUser(c, tabmate.CreateUserParams{
+					Name:            pgtype.Text{String: userInfo.Name, Valid: true},
+					CognitoSub:      userInfo.Sub,
+					Email:           userInfo.Email,
+				})
+				if err != nil {
+					log.Printf("Error creating user: %v", err)
+					c.Abort()
+					return
+				}
+			} else {
+				// Handle other potential errors from GetUserByCognitoSub
+				log.Printf("Error checking for existing user: %v", err)
+				c.Abort()
+				return
+			}
+		}	
 		
 		usercontroller.UpdateUserCache(user)
 
@@ -186,12 +205,20 @@ func HandleSignup(c *gin.Context) {
 		})
 		return
 	}
+
 	if confirmed {
 		// If user is automatically confirmed, redirect to login
-		c.Redirect(http.StatusFound, "/login")
+		c.JSON(http.StatusCreated, gin.H{
+			"message": "User registered successfully",
+			"username": signupReq.Username,
+			"email":    signupReq.Email,
+		})
 	} else {
+		c.Set("username", signupReq.Username)
+		c.SetCookie("pending_username", signupReq.Username, 15*60, "/", "", false, true)
 		// If user needs to confirm their email, show confirmation page
-		c.JSON(http.StatusOK, gin.H{
+		c.JSON(http.StatusAccepted, gin.H{
+			"message": "Registration initiated. Please check your email to confirm.",
 			"username": signupReq.Username,
 			"email":    signupReq.Email,
 		})
@@ -200,16 +227,33 @@ func HandleSignup(c *gin.Context) {
 
 // HandleConfirmSignup processes the signup confirmation
 func HandleConfirmSignup(c *gin.Context) {
-
-
 	var confirmReq struct {
-		Username string `json:"username"`
 		Code     string `json:"code"`
 	}
 
+	username, _ := c.Cookie("pending_username")
+	if username == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Username not found in cookie",
+		})
+		return
+	}
+	    if err := c.ShouldBindJSON(&confirmReq); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "error": "Invalid JSON: " + err.Error(),
+        })
+        return
+    }
+
+	    if confirmReq.Code == "" {
+        c.JSON(http.StatusBadRequest, gin.H{
+            "error": "Code is required",
+        })
+        return
+    }
 
 	// Confirm the signup with Cognito
-	err := actions.ConfirmSignUp(c.Request.Context(), confirmReq.Username, confirmReq.Code)
+	err := actions.ConfirmSignUp(c.Request.Context(), username, confirmReq.Code)
 	if err != nil {
 		c.JSON(http.StatusBadRequest,  gin.H{
 			"error": fmt.Sprintf("Failed to confirm signup: %v", err),
