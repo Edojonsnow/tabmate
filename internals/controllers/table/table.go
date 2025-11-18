@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	tabmate "tabmate/internals/store/postgres"
@@ -282,19 +283,79 @@ func AddItemToTable(queries tabmate.Querier) gin.HandlerFunc{
 	}
 }
 
+func UpdateItemQuantity(queries tabmate.Querier) gin.HandlerFunc{
+	return func(c *gin.Context){
+
+		id := c.Param("id")
+		var req struct {
+			Quantity int32 `json:"quantity"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
+		updated_item, err :=  queries.UpdateItemQuantity(c, tabmate.UpdateItemQuantityParams{
+			ID:     pgtype.UUID{Bytes: uuid.MustParse(id), Valid: true},
+			Quantity: req.Quantity,
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update item quantity"})
+			return
+		}
+
+		c.JSON(http.StatusOK, updated_item)
+	}
+}
+
+func AddMenuItemsToDB(queries tabmate.Querier) gin.HandlerFunc{
+	return func(c *gin.Context){
+
+		var req []tabmate.AddItemToTableParams
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
+		fmt.Println("Payload", req)
+
+		for _, item := range req {
+			// Set default values for fields not provided by the frontend
+			if item.Quantity == 0 {
+				item.Quantity = 1 // Default quantity to 1
+			}
+			if !item.Description.Valid {
+				item.Description = pgtype.Text{String: "", Valid: false} // Default empty description
+			}
+			if !item.OriginalParsedText.Valid {
+				item.OriginalParsedText = pgtype.Text{String: item.Name, Valid: true} // Default to item name
+			}
+
+			_, err := queries.AddItemToTable(c, item)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add item to table due to a database error. Please try again later."})
+				return
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Items added to table successfully"})
+	}
+}
+
 func DeleteItemFromTable(queries tabmate.Querier) gin.HandlerFunc{
 	return func(c *gin.Context){
-		itemIDStr := c.Param("id")
 
 		// Convert string to pgtype.UUID
-        var itemID pgtype.UUID
-        err := itemID.Scan(itemIDStr)
-        if err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid item ID"})
-            return
-        }
+        var itemID struct {
+			Id pgtype.UUID `json:"id"`
+		}
+		
+		if err := c.ShouldBindJSON(&itemID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid item ID"})
+			return
+		}
 
-		err = queries.DeleteItemFromTable(c, itemID)
+		err := queries.DeleteItemFromTable(c, itemID.Id)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error":"Failed to delete item"})
 			return
