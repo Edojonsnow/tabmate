@@ -15,6 +15,8 @@ type Querier interface {
 	AddItemToTable(ctx context.Context, arg AddItemToTableParams) (Items, error)
 	// Appends a new member_id to the members array if not already present.
 	AddMemberToTable(ctx context.Context, arg AddMemberToTableParams) (Tables, error)
+	// Adds multiple items to the database.
+	AddMenuItemsToDB(ctx context.Context, arg AddMenuItemsToDBParams) error
 	// Adds a user to a table with an optional role, defaulting is_settled to false.
 	AddUserToTable(ctx context.Context, arg AddUserToTableParams) (TableMembers, error)
 	CheckIfCognitoSubExists(ctx context.Context, email string) (bool, error)
@@ -81,6 +83,8 @@ type Querier interface {
 	SearchTablesByNameOrRestaurant(ctx context.Context, dollar_1 pgtype.Text) ([]Tables, error)
 	// Updates the is_settled status for a user in a specific table.
 	SetMemberSettledStatus(ctx context.Context, arg SetMemberSettledStatusParams) (TableMembers, error)
+	// Updates the quantity of a single item
+	UpdateItemQuantity(ctx context.Context, arg UpdateItemQuantityParams) (Items, error)
 	// Updates the role of a user within a specific table.
 	UpdateMemberRoleInTable(ctx context.Context, arg UpdateMemberRoleInTableParams) (TableMembers, error)
 	UpdateTableMenuURL(ctx context.Context, arg UpdateTableMenuURLParams) (Tables, error)

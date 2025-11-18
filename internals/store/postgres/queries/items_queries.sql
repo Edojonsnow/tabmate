@@ -52,3 +52,34 @@ INSERT INTO items (
     $7
 )
 RETURNING *;
+
+-- name: UpdateItemQuantity :one
+-- Updates the quantity of a single item
+
+UPDATE items 
+SET quantity = $1
+WHERE id = $2
+RETURNING *;
+
+
+-- name: AddMenuItemsToDB :exec
+-- Adds multiple items to the database.
+INSERT INTO items (
+    table_code,
+    added_by_user_id,
+    name,
+    price,
+    quantity,
+    description,
+    source,
+    original_parsed_text
+) VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7,
+    $8
+);

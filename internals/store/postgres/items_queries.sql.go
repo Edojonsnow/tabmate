@@ -70,6 +70,54 @@ func (q *Queries) AddItemToTable(ctx context.Context, arg AddItemToTableParams) 
 	return i, err
 }
 
+const addMenuItemsToDB = `-- name: AddMenuItemsToDB :exec
+INSERT INTO items (
+    table_code,
+    added_by_user_id,
+    name,
+    price,
+    quantity,
+    description,
+    source,
+    original_parsed_text
+) VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7,
+    $8
+)
+`
+
+type AddMenuItemsToDBParams struct {
+	TableCode          string         `json:"table_code"`
+	AddedByUserID      pgtype.UUID    `json:"added_by_user_id"`
+	Name               string         `json:"name"`
+	Price              pgtype.Numeric `json:"price"`
+	Quantity           int32          `json:"quantity"`
+	Description        pgtype.Text    `json:"description"`
+	Source             pgtype.Text    `json:"source"`
+	OriginalParsedText pgtype.Text    `json:"original_parsed_text"`
+}
+
+// Adds multiple items to the database.
+func (q *Queries) AddMenuItemsToDB(ctx context.Context, arg AddMenuItemsToDBParams) error {
+	_, err := q.db.Exec(ctx, addMenuItemsToDB,
+		arg.TableCode,
+		arg.AddedByUserID,
+		arg.Name,
+		arg.Price,
+		arg.Quantity,
+		arg.Description,
+		arg.Source,
+		arg.OriginalParsedText,
+	)
+	return err
+}
+
 const deleteItemFromTable = `-- name: DeleteItemFromTable :exec
 DELETE FROM items
 WHERE id = $1
@@ -190,4 +238,37 @@ func (q *Queries) ListItemsWithUserDetailsInTable(ctx context.Context, tableCode
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateItemQuantity = `-- name: UpdateItemQuantity :one
+
+UPDATE items 
+SET quantity = $1
+WHERE id = $2
+RETURNING id, table_code, added_by_user_id, name, price, quantity, description, source, original_parsed_text, created_at, updated_at
+`
+
+type UpdateItemQuantityParams struct {
+	Quantity int32       `json:"quantity"`
+	ID       pgtype.UUID `json:"id"`
+}
+
+// Updates the quantity of a single item
+func (q *Queries) UpdateItemQuantity(ctx context.Context, arg UpdateItemQuantityParams) (Items, error) {
+	row := q.db.QueryRow(ctx, updateItemQuantity, arg.Quantity, arg.ID)
+	var i Items
+	err := row.Scan(
+		&i.ID,
+		&i.TableCode,
+		&i.AddedByUserID,
+		&i.Name,
+		&i.Price,
+		&i.Quantity,
+		&i.Description,
+		&i.Source,
+		&i.OriginalParsedText,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
