@@ -11,9 +11,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func setupRouter(queries tabmate.Querier) *gin.Engine {
+func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 	router := gin.Default()
 	
 	// Load HTML templates
@@ -48,14 +49,20 @@ func setupRouter(queries tabmate.Querier) *gin.Engine {
 		
 		authorized.POST("/api/create-table", tablecontroller.CreateTable(queries))
 		authorized.POST("/api/tables/add-item-to-order", tablecontroller.AddItemToTable(queries))
+		authorized.POST("/api/join-table/:code", tablecontroller.JoinTable(queries)) //join table by code
+
+
+
 		authorized.POST("/api/items", tablecontroller.AddMenuItemsToDB(queries))
 		authorized.PATCH("/api/items/:id", tablecontroller.UpdateItemQuantity(queries))
 		authorized.GET("/api/tables/:code/table-items", tablecontroller.ListItemsWithUserDetailsInTable(queries))
 		authorized.DELETE("/api/items/:id", tablecontroller.DeleteItemFromTable(queries))
-		authorized.POST("/api/join-table/:code", tablecontroller.JoinTable(queries)) //join table by code
+		authorized.POST("/api/tables/:code/sync", tablecontroller.SyncTableItems(pool))
 
 		authorized.GET("/api/get-user-tables", tablecontroller.ListTablesForUser(queries)) //list tables for user
 		authorized.GET("/api/tables/:code/members", tablecontroller.FetchTableMembers(queries)) //fetch table members
+
+
 
 	}
 	

@@ -35,7 +35,7 @@ func main() {
 	log.Println("Successfully connected to the database!")
 
 	queries := tabmate.New(pool)
-	router := setupRouter(queries)
+	router := setupRouter(pool, queries)
 
 	err = tablecontrollers.InitializeActiveTables(context.Background(), queries)
 	if err != nil {

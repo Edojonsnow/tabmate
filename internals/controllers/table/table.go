@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	tabmate "tabmate/internals/store/postgres"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Table struct {
@@ -39,6 +41,18 @@ type ClientMessage struct {
 type CreateTableReq struct {
 	TableName string `json:"tablename" binding:"required"`
 	Restaurant string `json:"restaurant" binding:"required"`
+}
+
+type ItemDelta struct {
+    ItemName      string `json:"itemName"`
+    Price         float64 `json:"price"`
+    QuantityDelta int     `json:"quantityDelta"`
+    Username      string  `json:"username"`
+	AddedByUserID  pgtype.UUID `json:"addedByUserId"`
+}
+
+type BulkSyncRequest struct { 
+    Updates []ItemDelta `json:"updates"`
 }
 // Map to track active tables
 var activeTables = make(map[string]*Table)
@@ -339,6 +353,111 @@ func AddMenuItemsToDB(queries tabmate.Querier) gin.HandlerFunc{
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Items added to table successfully"})
+	}
+}
+
+func SyncTableItems(pool *pgxpool.Pool) gin.HandlerFunc{
+	return func(c *gin.Context){
+		ctx := c.Request.Context()
+
+		tableCode := c.Param("code")
+		if tableCode == "" {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Table ID missing"})
+            return
+        }
+
+		var req BulkSyncRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+		
+
+		tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to begin database transaction"})
+			return
+		}
+        defer tx.Rollback(ctx) // safe rollback if something fails
+
+        q := tabmate.New(tx) // sqlc Queries USING the transaction
+
+		existingItems, err := q.ListItemsWithUserDetailsInTable(ctx, tableCode)
+		if err != nil {
+			tx.Rollback(ctx)
+			c.JSON(500, gin.H{"error": "failed to list items"})
+			return
+		}
+
+		// Create lookup map
+		itemsMap := make(map[string]tabmate.ListItemsWithUserDetailsInTableRow)
+        for _, it := range existingItems {
+            key := strings.ToLower(it.Name) + ":" + it.AddedByUserID.String()
+            itemsMap[key] = it
+        }
+
+		for _, upd := range req.Updates {
+            key := strings.ToLower(upd.ItemName) + ":" + upd.AddedByUserID.String()
+            existing, found := itemsMap[key]
+
+			var price pgtype.Numeric
+			
+			if err := price.Scan(fmt.Sprintf("%.2f", upd.Price)); err != nil {
+				log.Printf("price scan error: %v, raw=%v", err, upd.Price)
+				c.JSON(500, gin.H{"error": "Invalid price value"})
+				return
+			}
+
+            if !found {
+                // New item, only add if delta > 0
+                if upd.QuantityDelta > 0 {
+                    _, err := q.AddItemToTable(ctx, tabmate.AddItemToTableParams{
+                        TableCode:          tableCode,
+                        AddedByUserID:      upd.AddedByUserID,
+                        Name:               upd.ItemName,
+                        Price:            	price,
+                        Quantity:           int32(upd.QuantityDelta),
+                        Description:        pgtype.Text{},
+                        OriginalParsedText: pgtype.Text{},
+					})
+                    if err != nil {
+                        c.JSON(500, gin.H{"error": err.Error()})
+                        return
+                    }
+                }
+                continue
+            }
+
+			newQty := existing.Quantity + int32(upd.QuantityDelta)
+
+			if newQty <= 0 {
+                // delete
+                if err := q.DeleteItemFromTable(ctx, existing.ID); err != nil {
+                    c.JSON(500, gin.H{"error": err.Error()})
+                    return
+                }
+            } else {
+                // update
+                _, err := q.UpdateItemQuantity(ctx, tabmate.UpdateItemQuantityParams{
+                    ID:       existing.ID,
+                    Quantity: newQty,
+                })
+                if err != nil {
+                    c.JSON(500, gin.H{"error": err.Error()})
+                    return
+                }
+            }
+        }
+		
+
+		if err := tx.Commit(ctx); err != nil {
+            c.JSON(500, gin.H{"error": "Failed to commit transaction"})
+            return
+        }
+
+        c.JSON(http.StatusOK, gin.H{"status": "ok"})
+    
+		
 	}
 }
 
