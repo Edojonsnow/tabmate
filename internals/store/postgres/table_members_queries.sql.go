@@ -289,10 +289,21 @@ SELECT
     t.status AS table_status,
     tm.role AS user_role_in_table,
     tm.is_settled AS user_is_settled_in_table,
-    tm.joined_at
+    tm.joined_at,
+    COALESCE(SUM(i.price), 0) AS total_items_price -- Sums item prices for each table
 FROM table_members tm
 JOIN tables t ON tm.table_id = t.id
+LEFT JOIN items i ON i.table_code = t.table_code  -- Join items for each table
 WHERE tm.user_id = $1
+GROUP BY
+    t.id,
+    t.table_code,
+    t.name,
+    t.restaurant_name,
+    t.status,
+    tm.role,
+    tm.is_settled,
+    tm.joined_at
 ORDER BY t.created_at DESC, tm.joined_at DESC
 `
 
@@ -305,6 +316,7 @@ type ListTablesWithMembershipStatusForUserRow struct {
 	UserRoleInTable      string             `json:"user_role_in_table"`
 	UserIsSettledInTable bool               `json:"user_is_settled_in_table"`
 	JoinedAt             pgtype.Timestamptz `json:"joined_at"`
+	TotalItemsPrice      interface{}        `json:"total_items_price"`
 }
 
 // For a specific user, list all tables they are a member of,
@@ -327,6 +339,7 @@ func (q *Queries) ListTablesWithMembershipStatusForUser(ctx context.Context, use
 			&i.UserRoleInTable,
 			&i.UserIsSettledInTable,
 			&i.JoinedAt,
+			&i.TotalItemsPrice,
 		); err != nil {
 			return nil, err
 		}

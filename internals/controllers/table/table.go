@@ -521,13 +521,14 @@ func ListTablesForUser(queries tabmate.Querier ) gin.HandlerFunc{
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assert user ID type"})
 			return
 		}
-
+		
 		tables, err := queries.ListTablesWithMembershipStatusForUser(c, pgUserID)
 		if err != nil {
+			log.Printf("ListTablesWithMembershipStatusForUser error: %v", err) 
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list tables with membership status for user"})
 			return
 		}
-		
+
 
 		c.JSON(http.StatusOK, tables)
 	}
