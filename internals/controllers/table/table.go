@@ -167,6 +167,7 @@ func CreateTable(queries tabmate.Querier) gin.HandlerFunc {
 			"id":   uuid.UUID(dbTable.ID.Bytes).String(),
 			"name": createTableReq.TableName,
 			"restaurant": createTableReq.Restaurant,
+			"created_by" : pgUserID,
 		})
 	}
 }
@@ -214,6 +215,7 @@ func JoinTable(queries tabmate.Querier) gin.HandlerFunc {
 			// "usernames": usernames,
 			"tablename": dbTable.Name,
 			"restaurant": dbTable.RestaurantName,
+			"host": uuid.UUID(dbTable.CreatedBy.Bytes).String(),
 		})
 
 		}
