@@ -291,7 +291,7 @@ SELECT
     tm.role AS user_role_in_table,
     tm.is_settled AS user_is_settled_in_table,
     tm.joined_at,
-    COALESCE(SUM(i.price), 0) AS total_items_price -- Sums item prices for each table
+    COALESCE(SUM(i.price * i.quantity), 0) AS total_items_price -- Sums (item price * quantity) for each table
 FROM table_members tm
 JOIN tables t ON tm.table_id = t.id
 LEFT JOIN items i ON i.table_code = t.table_code  -- Join items for each table
