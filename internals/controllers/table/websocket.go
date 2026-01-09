@@ -77,10 +77,13 @@ func (c *TableClient) readPump() {
 		log.Printf("Received message from client %s: %s", c.userID, string(message))
 
 		var msg struct {
-            Type     string `json:"type"`
-            Content  string `json:"content"`
-            Username string `json:"username"`
-            Item     string `json:"item"`
+            Type      string          `json:"type"`
+            Content   string          `json:"content"`
+            Username  string          `json:"username"`
+			UserId    string 			`json:"userId"`
+            Item      string          `json:"item"`
+            FinalBill json.RawMessage `json:"finalBill"`
+			TableId	  string           `json:"tableId"`
         }
         if err := json.Unmarshal(message, &msg); err != nil {
             log.Printf("Error parsing message: %v", err)
@@ -185,6 +188,73 @@ func (c *TableClient) readPump() {
 			}
 			// Send back only to the requesting client
 			c.send <- jsonMsg
+		
+		case "lockInOrder":
+			// Broadcast lock event to all clients at the table
+			lockMsg := struct {
+				Type     string `json:"type"`
+				UserID   string `json:"userId"`
+				Username string `json:"username"`
+			}{
+				Type:     "lockInOrder",
+				UserID:   msg.UserId,
+				Username: msg.Username,
+			}
+			jsonLockMsg, err := json.Marshal(lockMsg)
+			if err != nil {
+				log.Printf("Failed to marshal lockInOrder message: %v", err)
+				continue
+			}
+			// Broadcast to all clients including sender (they need to update UI too)
+			for client := range c.table.clients {
+				client.send <- jsonLockMsg
+			}
+			log.Printf("User %s locked their order", msg.Username)
+		
+		case "unlockOrder":
+			// Broadcast unlock event to all clients at the table
+			unlockMsg := struct {
+				Type     string `json:"type"`
+				UserID   string `json:"userId"`
+				Username string `json:"username"`
+			}{
+				Type:     "unlockOrder",
+				UserID:   msg.UserId,
+				Username: msg.Username,
+			}
+			jsonUnlockMsg, err := json.Marshal(unlockMsg)
+			if err != nil {
+				log.Printf("Failed to marshal unlockOrder message: %v", err)
+				continue
+			}
+			// Broadcast to all clients including sender
+			for client := range c.table.clients {
+				client.send <- jsonUnlockMsg
+			}
+			log.Printf("User %s unlocked their order", msg.Username)
+		
+		case "billFinalized":
+			// Broadcast bill finalization to all clients at the table
+			finalizeMsg := struct {
+				Type      string          `json:"type"`
+				FinalBill json.RawMessage `json:"finalBill"`
+				TableId   string           `json:"tableId"`
+			}{
+				Type:      "billFinalized",
+				FinalBill: msg.FinalBill,
+				TableId: msg.TableId,
+			}
+			jsonFinalizeMsg, err := json.Marshal(finalizeMsg)
+			if err != nil {
+				log.Printf("Failed to marshal billFinalized message: %v", err)
+				continue
+			}
+			// Broadcast to all clients at the table
+			for client := range c.table.clients {
+				client.send <- jsonFinalizeMsg
+			}
+			log.Printf("Bill finalized for table %s", msg.TableId)
+		
         default:
             log.Printf("Unknown message type: %s", msg.Type)
         }

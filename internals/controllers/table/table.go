@@ -17,8 +17,8 @@ import (
 )
 
 type Table struct {
-	ID uuid.UUID
-	Code string
+	ID      uuid.UUID
+	Code    string
 	clients map[*TableClient]bool
 	// Inbound messages from the clients.
 	broadcast chan []byte
@@ -29,31 +29,31 @@ type Table struct {
 	// Unregister requests from clients.
 	unregister chan *TableClient
 
-	processIncomingMessage chan *ClientMessage 
+	processIncomingMessage chan *ClientMessage
 }
 
 type ClientMessage struct {
 	Client *TableClient
-	Data []byte
-
+	Data   []byte
 }
 
 type CreateTableReq struct {
-	TableName string `json:"tablename" binding:"required"`
+	TableName  string `json:"tablename" binding:"required"`
 	Restaurant string `json:"restaurant" binding:"required"`
 }
 
 type ItemDelta struct {
-    ItemName      string `json:"itemName"`
-    Price         float64 `json:"price"`
-    QuantityDelta int     `json:"quantityDelta"`
-    Username      string  `json:"username"`
-	AddedByUserID  pgtype.UUID `json:"addedByUserId"`
+	ItemName      string      `json:"itemName"`
+	Price         float64     `json:"price"`
+	QuantityDelta int         `json:"quantityDelta"`
+	Username      string      `json:"username"`
+	AddedByUserID pgtype.UUID `json:"addedByUserId"`
 }
 
-type BulkSyncRequest struct { 
-    Updates []ItemDelta `json:"updates"`
+type BulkSyncRequest struct {
+	Updates []ItemDelta `json:"updates"`
 }
+
 // Map to track active tables
 var activeTables = make(map[string]*Table)
 
@@ -111,7 +111,7 @@ func CreateTable(queries tabmate.Querier) gin.HandlerFunc {
 		}
 
 		var createTableReq struct {
-			TableName string `json:"tablename" binding:"required"`
+			TableName  string `json:"tablename" binding:"required"`
 			Restaurant string `json:"restaurant" binding:"required"`
 		}
 
@@ -141,8 +141,8 @@ func CreateTable(queries tabmate.Querier) gin.HandlerFunc {
 		})
 		if err != nil {
 			log.Printf("Database error creating table: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create table due to a database error. Please try again later."})
-		return
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create table due to a database error. Please try again later."})
+			return
 		}
 
 		_, err = queries.AddUserToTable(c, tabmate.AddUserToTableParams{
@@ -151,7 +151,7 @@ func CreateTable(queries tabmate.Querier) gin.HandlerFunc {
 			Role:    "host",
 		})
 		if err != nil {
-		  c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add user to table due to a database error. Please try again later."})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add user to table due to a database error. Please try again later."})
 			return
 		}
 
@@ -163,66 +163,65 @@ func CreateTable(queries tabmate.Querier) gin.HandlerFunc {
 		go newTable.Run()
 
 		c.JSON(http.StatusOK, gin.H{
-			"code": newTableCode,
-			"id":   uuid.UUID(dbTable.ID.Bytes).String(),
-			"name": createTableReq.TableName,
+			"code":       newTableCode,
+			"id":         uuid.UUID(dbTable.ID.Bytes).String(),
+			"name":       createTableReq.TableName,
 			"restaurant": createTableReq.Restaurant,
-			"created_by" : pgUserID,
+			"created_by": pgUserID,
 		})
 	}
 }
 
-func JoinTable(queries tabmate.Querier) gin.HandlerFunc { 
-		return func (c *gin.Context ){
-			code := c.Param("code")
-			userId, exists := c.Get( "user_id")
-			if !exists {
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in context"})
-				return
-			}
-			// Type assert userId to pgtype.UUID
-			pgUserID := userId.(pgtype.UUID)
+func JoinTable(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		code := c.Param("code")
+		userId, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in context"})
+			return
+		}
+		// Type assert userId to pgtype.UUID
+		pgUserID := userId.(pgtype.UUID)
 
-			// Fetch Table from Database
-			dbTable, err := queries.GetTableByCode(c, code)
+		// Fetch Table from Database
+		dbTable, err := queries.GetTableByCode(c, code)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Table not found in database"})
+			return
+		}
+
+		// Check if user is already a member of the table
+		userExists, err := userIsMember(c, queries, dbTable.ID, pgUserID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+			return
+		}
+		if !userExists {
+			_, err := queries.AddUserToTable(c, tabmate.AddUserToTableParams{
+				TableID: dbTable.ID,
+				UserID:  pgUserID,
+				Role:    "guest",
+			})
 			if err != nil {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Table not found in database"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add user"})
 				return
 			}
+		}
 
-
-			// Check if user is already a member of the table
-			user_exists, err := userIsMember(c, queries, dbTable.ID, pgUserID)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-				return
-			}
-			if !user_exists {
-				_, err := queries.AddUserToTable(c, tabmate.AddUserToTableParams{
-					TableID: dbTable.ID,
-					UserID:  pgUserID,
-					Role:    "guest",
-				})
-				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add user"})
-					return
-				}
-			}
-
-			c.JSON(http.StatusOK, gin.H{
+		c.JSON(http.StatusOK, gin.H{
 			"code": code,
-			"id":   uuid.UUID(dbTable.ID.Bytes).String(), 
+			"id":   uuid.UUID(dbTable.ID.Bytes).String(),
 			// "usernames": usernames,
-			"tablename": dbTable.Name,
+			"tablename":  dbTable.Name,
 			"restaurant": dbTable.RestaurantName,
-			"host": uuid.UUID(dbTable.CreatedBy.Bytes).String(),
+			"host":       uuid.UUID(dbTable.CreatedBy.Bytes).String(),
 		})
 
-		}
+	}
 }
 
-func FetchTableMembers(queries tabmate.Querier) gin.HandlerFunc{
-	return func (c *gin.Context){
+func FetchTableMembers(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		code := c.Param("code")
 		dbTable, err := queries.GetTableByCode(c, code)
 		if err != nil {
@@ -230,12 +229,12 @@ func FetchTableMembers(queries tabmate.Querier) gin.HandlerFunc{
 			return
 		}
 
-		table_members, err := queries.ListMembersWithUserDetailsByTableID(c, dbTable.ID)
+		tableMembers, err := queries.ListMembersWithUserDetailsByTableID(c, dbTable.ID)
 		if err != nil {
-		  c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch table members"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch table members"})
 		}
 
-		c.JSON(http.StatusOK, table_members)
+		c.JSON(http.StatusOK, tableMembers)
 	}
 }
 
@@ -253,8 +252,8 @@ func userIsMember(ctx context.Context, queries tabmate.Querier, tableID, userID 
 	return true, nil
 }
 
-func AddItemToTable(queries tabmate.Querier) gin.HandlerFunc{
-	return func (c *gin.Context)  {
+func AddItemToTable(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		// Retrieve user_id from context
 		userID, exists := c.Get("user_id")
 		if !exists {
@@ -288,19 +287,19 @@ func AddItemToTable(queries tabmate.Querier) gin.HandlerFunc{
 		// Set the AddedByUserID from the context
 		req.AddedByUserID = pgUserID
 
-		new_item, err := queries.AddItemToTable(c, req)
+		newItem, err := queries.AddItemToTable(c, req)
 		if err != nil {
 			log.Printf("Database error adding item to table: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add item to table due to a database error. Please try again later."})
 			return
 		}
 
-		c.JSON(http.StatusOK, new_item)
+		c.JSON(http.StatusOK, newItem)
 	}
 }
 
-func UpdateItemQuantity(queries tabmate.Querier) gin.HandlerFunc{
-	return func(c *gin.Context){
+func UpdateItemQuantity(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
 
 		id := c.Param("id")
 		var req struct {
@@ -311,8 +310,8 @@ func UpdateItemQuantity(queries tabmate.Querier) gin.HandlerFunc{
 			return
 		}
 
-		updated_item, err :=  queries.UpdateItemQuantity(c, tabmate.UpdateItemQuantityParams{
-			ID:     pgtype.UUID{Bytes: uuid.MustParse(id), Valid: true},
+		updatedItem, err := queries.UpdateItemQuantity(c, tabmate.UpdateItemQuantityParams{
+			ID:       pgtype.UUID{Bytes: uuid.MustParse(id), Valid: true},
 			Quantity: req.Quantity,
 		})
 		if err != nil {
@@ -320,12 +319,12 @@ func UpdateItemQuantity(queries tabmate.Querier) gin.HandlerFunc{
 			return
 		}
 
-		c.JSON(http.StatusOK, updated_item)
+		c.JSON(http.StatusOK, updatedItem)
 	}
 }
 
-func AddMenuItemsToDB(queries tabmate.Querier) gin.HandlerFunc{
-	return func(c *gin.Context){
+func AddMenuItemsToDB(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
 
 		var req []tabmate.AddItemToTableParams
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -358,31 +357,30 @@ func AddMenuItemsToDB(queries tabmate.Querier) gin.HandlerFunc{
 	}
 }
 
-func SyncTableItems(pool *pgxpool.Pool) gin.HandlerFunc{
-	return func(c *gin.Context){
+func SyncTableItems(pool *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		ctx := c.Request.Context()
 
 		tableCode := c.Param("code")
 		if tableCode == "" {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "Table ID missing"})
-            return
-        }
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Table ID missing"})
+			return
+		}
 
 		var req BulkSyncRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 			return
 		}
-		
 
 		tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to begin database transaction"})
 			return
 		}
-        defer tx.Rollback(ctx) // safe rollback if something fails
+		defer tx.Rollback(ctx) // safe rollback if something fails
 
-        q := tabmate.New(tx) // sqlc Queries USING the transaction
+		q := tabmate.New(tx) // sqlc Queries USING the transaction
 
 		existingItems, err := q.ListItemsWithUserDetailsInTable(ctx, tableCode)
 		if err != nil {
@@ -393,84 +391,82 @@ func SyncTableItems(pool *pgxpool.Pool) gin.HandlerFunc{
 
 		// Create lookup map
 		itemsMap := make(map[string]tabmate.ListItemsWithUserDetailsInTableRow)
-        for _, it := range existingItems {
-            key := strings.ToLower(it.Name) + ":" + it.AddedByUserID.String()
-            itemsMap[key] = it
-        }
+		for _, it := range existingItems {
+			key := strings.ToLower(it.Name) + ":" + it.AddedByUserID.String()
+			itemsMap[key] = it
+		}
 
 		for _, upd := range req.Updates {
-            key := strings.ToLower(upd.ItemName) + ":" + upd.AddedByUserID.String()
-            existing, found := itemsMap[key]
+			key := strings.ToLower(upd.ItemName) + ":" + upd.AddedByUserID.String()
+			existing, found := itemsMap[key]
 
 			var price pgtype.Numeric
-			
+
 			if err := price.Scan(fmt.Sprintf("%.2f", upd.Price)); err != nil {
 				log.Printf("price scan error: %v, raw=%v", err, upd.Price)
 				c.JSON(500, gin.H{"error": "Invalid price value"})
 				return
 			}
 
-            if !found {
-                // New item, only add if delta > 0
-                if upd.QuantityDelta > 0 {
-                    _, err := q.AddItemToTable(ctx, tabmate.AddItemToTableParams{
-                        TableCode:          tableCode,
-                        AddedByUserID:      upd.AddedByUserID,
-                        Name:               upd.ItemName,
-                        Price:            	price,
-                        Quantity:           int32(upd.QuantityDelta),
-                        Description:        pgtype.Text{},
-                        OriginalParsedText: pgtype.Text{},
+			if !found {
+				// New item, only add if delta > 0
+				if upd.QuantityDelta > 0 {
+					_, err := q.AddItemToTable(ctx, tabmate.AddItemToTableParams{
+						TableCode:          tableCode,
+						AddedByUserID:      upd.AddedByUserID,
+						Name:               upd.ItemName,
+						Price:              price,
+						Quantity:           int32(upd.QuantityDelta),
+						Description:        pgtype.Text{},
+						OriginalParsedText: pgtype.Text{},
 					})
-                    if err != nil {
-                        c.JSON(500, gin.H{"error": err.Error()})
-                        return
-                    }
-                }
-                continue
-            }
+					if err != nil {
+						c.JSON(500, gin.H{"error": err.Error()})
+						return
+					}
+				}
+				continue
+			}
 
 			newQty := existing.Quantity + int32(upd.QuantityDelta)
 
 			if newQty <= 0 {
-                // delete
-                if err := q.DeleteItemFromTable(ctx, existing.ID); err != nil {
-                    c.JSON(500, gin.H{"error": err.Error()})
-                    return
-                }
-            } else {
-                // update
-                _, err := q.UpdateItemQuantity(ctx, tabmate.UpdateItemQuantityParams{
-                    ID:       existing.ID,
-                    Quantity: newQty,
-                })
-                if err != nil {
-                    c.JSON(500, gin.H{"error": err.Error()})
-                    return
-                }
-            }
-        }
-		
+				// delete
+				if err := q.DeleteItemFromTable(ctx, existing.ID); err != nil {
+					c.JSON(500, gin.H{"error": err.Error()})
+					return
+				}
+			} else {
+				// update
+				_, err := q.UpdateItemQuantity(ctx, tabmate.UpdateItemQuantityParams{
+					ID:       existing.ID,
+					Quantity: newQty,
+				})
+				if err != nil {
+					c.JSON(500, gin.H{"error": err.Error()})
+					return
+				}
+			}
+		}
 
 		if err := tx.Commit(ctx); err != nil {
-            c.JSON(500, gin.H{"error": "Failed to commit transaction"})
-            return
-        }
+			c.JSON(500, gin.H{"error": "Failed to commit transaction"})
+			return
+		}
 
-        c.JSON(http.StatusOK, gin.H{"status": "ok"})
-    
-		
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+
 	}
 }
 
-func DeleteItemFromTable(queries tabmate.Querier) gin.HandlerFunc{
-	return func(c *gin.Context){
+func DeleteItemFromTable(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
 
 		// Convert string to pgtype.UUID
-        var itemID struct {
+		var itemID struct {
 			Id pgtype.UUID `json:"id"`
 		}
-		
+
 		if err := c.ShouldBindJSON(&itemID); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid item ID"})
 			return
@@ -478,13 +474,13 @@ func DeleteItemFromTable(queries tabmate.Querier) gin.HandlerFunc{
 
 		err := queries.DeleteItemFromTable(c, itemID.Id)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error":"Failed to delete item"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete item"})
 			return
 		}
 	}
 }
 
-func ListItemsInTable(queries tabmate.Querier) gin.HandlerFunc{
+func ListItemsInTable(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		code := c.Param("code")
 		items, err := queries.ListItemsInTable(c, code)
@@ -496,7 +492,7 @@ func ListItemsInTable(queries tabmate.Querier) gin.HandlerFunc{
 	}
 }
 
-func ListItemsWithUserDetailsInTable(queries tabmate.Querier) gin.HandlerFunc{
+func ListItemsWithUserDetailsInTable(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		code := c.Param("code")
 		items, err := queries.ListItemsWithUserDetailsInTable(c, code)
@@ -508,8 +504,8 @@ func ListItemsWithUserDetailsInTable(queries tabmate.Querier) gin.HandlerFunc{
 	}
 }
 
-func ListTablesForUser(queries tabmate.Querier ) gin.HandlerFunc{
-	return func(c *gin.Context){
+func ListTablesForUser(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		// Retrieve user_id from context
 		userID, exists := c.Get("user_id")
 		if !exists {
@@ -523,19 +519,17 @@ func ListTablesForUser(queries tabmate.Querier ) gin.HandlerFunc{
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assert user ID type"})
 			return
 		}
-		
+
 		tables, err := queries.ListTablesWithMembershipStatusForUser(c, pgUserID)
 		if err != nil {
-			log.Printf("ListTablesWithMembershipStatusForUser error: %v", err) 
+			log.Printf("ListTablesWithMembershipStatusForUser error: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list tables with membership status for user"})
 			return
 		}
 
-
 		c.JSON(http.StatusOK, tables)
 	}
 }
-
 
 func GetTableHandler(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -564,84 +558,77 @@ func GetTableHandler(queries tabmate.Querier) gin.HandlerFunc {
 		log.Printf("Connected usernames for table %s: %v", code, usernames)
 
 		c.JSON(http.StatusOK, gin.H{
-			"code": code,
-			"id":   dbTable.ID,
-			"usernames": usernames,
-			"tablename": dbTable.Name,
+			"code":       code,
+			"id":         dbTable.ID,
+			"usernames":  usernames,
+			"tablename":  dbTable.Name,
 			"restaurant": dbTable.RestaurantName,
 		})
 	}
 }
 
-
 func (t *Table) GetUsernames() []string {
-    usernames := []string{}
-    for client := range t.clients {
-        log.Printf("Client in map: %v", client.username)
-        if client.username != "" {
-            usernames = append(usernames, client.username)
-        }
-    }
-    return usernames
+	usernames := []string{}
+	for client := range t.clients {
+		log.Printf("Client in map: %v", client.username)
+		if client.username != "" {
+			usernames = append(usernames, client.username)
+		}
+	}
+	return usernames
 }
 
-func NewTable(id uuid.UUID , code string ) *Table{
+func NewTable(id uuid.UUID, code string) *Table {
 	return &Table{
-		ID:          id,
-        Code:        code,
-        clients:     make(map[*TableClient]bool),
-        broadcast:   make(chan []byte), 
-        register:    make(chan *TableClient),
-        unregister:  make(chan *TableClient),
-        processIncomingMessage: make(chan *ClientMessage),
+		ID:                     id,
+		Code:                   code,
+		clients:                make(map[*TableClient]bool),
+		broadcast:              make(chan []byte),
+		register:               make(chan *TableClient),
+		unregister:             make(chan *TableClient),
+		processIncomingMessage: make(chan *ClientMessage),
 	}
 }
 
-func (t *Table) Run(){
+func (t *Table) Run() {
 	for {
-        select {
-        case client := <-t.register:
-            log.Printf("Registering client: %v", client.username)
-            t.clients[client] = true
+		select {
+		case client := <-t.register:
+			log.Printf("Registering client: %v", client.username)
+			t.clients[client] = true
 			usernames := t.GetUsernames()
 			log.Printf("Current connected usernames: %v", usernames)
-         
-            
-        case client := <-t.unregister:
-            if _, ok := t.clients[client]; ok {
-                log.Printf("Client unregistered: %v", client.username)
-                delete(t.clients, client)
-                close(client.send)
 
-            }
+		case client := <-t.unregister:
+			if _, ok := t.clients[client]; ok {
+				log.Printf("Client unregistered: %v", client.username)
+				delete(t.clients, client)
+				close(client.send)
 
-        case clientMsg := <-t.processIncomingMessage:
-            // 1. Process clientMsg.Data (e.g., parse JSON, identify action like "addItem")
-            // 2. Call relevant service (e.g., itemService.AddItem(...))
-            // 3. If successful, prepare a message to broadcast (e.g., "newItemAdded")
-            // 4. Send this message to t.broadcast
-            // Example:
-            // newItemMsg := []byte(`{"type": "itemAdded", "payload": ...}`)
-            // t.broadcast <- newItemMsg
-            log.Printf("Table %s received message from client %s: %s", t.Code, clientMsg.Client.userID, string(clientMsg.Data))
+			}
 
+		case clientMsg := <-t.processIncomingMessage:
+			// 1. Process clientMsg.Data (e.g., parse JSON, identify action like "addItem")
+			// 2. Call relevant service (e.g., itemService.AddItem(...))
+			// 3. If successful, prepare a message to broadcast (e.g., "newItemAdded")
+			// 4. Send this message to t.broadcast
+			// Example:
+			// newItemMsg := []byte(`{"type": "itemAdded", "payload": ...}`)
+			// t.broadcast <- newItemMsg
+			log.Printf("Table %s received message from client %s: %s", t.Code, clientMsg.Client.userID, string(clientMsg.Data))
 
-        case messageToBroadcast := <-t.broadcast:
-            log.Printf("Broadcasting message to %d clients in table %s", len(t.clients), t.Code)
-            for client := range t.clients {
-                select {
-                case client.send <- messageToBroadcast:
-                    log.Printf("Message sent to client in table %s", t.Code)
-                default:
-                    log.Printf("Failed to send message to client in table %s", t.Code)
-                    close(client.send)
-                    delete(t.clients, client)
-                }
-            }
-        }
-    }
+		case messageToBroadcast := <-t.broadcast:
+			log.Printf("Broadcasting message to %d clients in table %s", len(t.clients), t.Code)
+			for client := range t.clients {
+				select {
+				case client.send <- messageToBroadcast:
+					log.Printf("Message sent to client in table %s", t.Code)
+				default:
+					log.Printf("Failed to send message to client in table %s", t.Code)
+					close(client.send)
+					delete(t.clients, client)
+				}
+			}
+		}
+	}
 }
-
-
-
-
