@@ -114,6 +114,7 @@ SELECT
     t.name AS table_name,
     t.restaurant_name,
     t.status AS table_status,
+    t.vat,
     t.created_by as table_host,
     tm.role AS user_role_in_table,
     tm.is_settled AS user_is_settled_in_table,

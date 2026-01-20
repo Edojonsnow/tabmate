@@ -287,6 +287,7 @@ SELECT
     t.name AS table_name,
     t.restaurant_name,
     t.status AS table_status,
+    t.vat,
     t.created_by as table_host,
     tm.role AS user_role_in_table,
     tm.is_settled AS user_is_settled_in_table,
@@ -314,6 +315,7 @@ type ListTablesWithMembershipStatusForUserRow struct {
 	TableName            pgtype.Text        `json:"table_name"`
 	RestaurantName       pgtype.Text        `json:"restaurant_name"`
 	TableStatus          string             `json:"table_status"`
+	Vat                  pgtype.Numeric     `json:"vat"`
 	TableHost            pgtype.UUID        `json:"table_host"`
 	UserRoleInTable      string             `json:"user_role_in_table"`
 	UserIsSettledInTable bool               `json:"user_is_settled_in_table"`
@@ -338,6 +340,7 @@ func (q *Queries) ListTablesWithMembershipStatusForUser(ctx context.Context, use
 			&i.TableName,
 			&i.RestaurantName,
 			&i.TableStatus,
+			&i.Vat,
 			&i.TableHost,
 			&i.UserRoleInTable,
 			&i.UserIsSettledInTable,
