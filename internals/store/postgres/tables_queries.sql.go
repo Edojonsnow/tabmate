@@ -532,17 +532,17 @@ func (q *Queries) UpdateTableStatus(ctx context.Context, arg UpdateTableStatusPa
 const updateTableVat = `-- name: UpdateTableVat :one
 UPDATE tables
 SET vat = $2, updated_at = NOW()
-WHERE id = $1
+WHERE table_code = $1
 RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, members, vat, created_at, updated_at, closed_at
 `
 
 type UpdateTableVatParams struct {
-	ID  pgtype.UUID    `json:"id"`
-	Vat pgtype.Numeric `json:"vat"`
+	TableCode string         `json:"table_code"`
+	Vat       pgtype.Numeric `json:"vat"`
 }
 
 func (q *Queries) UpdateTableVat(ctx context.Context, arg UpdateTableVatParams) (Tables, error) {
-	row := q.db.QueryRow(ctx, updateTableVat, arg.ID, arg.Vat)
+	row := q.db.QueryRow(ctx, updateTableVat, arg.TableCode, arg.Vat)
 	var i Tables
 	err := row.Scan(
 		&i.ID,

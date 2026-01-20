@@ -592,7 +592,7 @@ func NewTable(id uuid.UUID, code string) *Table {
 
 func UpdateTableVat(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tableID := c.Param("id")
+		tableCode := c.Param("code")
 
 		var req struct {
 			Vat pgtype.Numeric `json:"vat"`
@@ -604,7 +604,7 @@ func UpdateTableVat(queries tabmate.Querier) gin.HandlerFunc {
 		}
 
 		updatedTable, err := queries.UpdateTableVat(c, tabmate.UpdateTableVatParams{
-			ID:  pgtype.UUID{Bytes: uuid.MustParse(tableID), Valid: true},
+			TableCode:  tableCode,
 			Vat: req.Vat,
 		})
 		if err != nil {
