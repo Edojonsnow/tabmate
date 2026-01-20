@@ -61,8 +61,7 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 
 		authorized.GET("/api/get-user-tables", tablecontroller.ListTablesForUser(queries)) //list tables for user
 		authorized.GET("/api/tables/:code/members", tablecontroller.FetchTableMembers(queries)) //fetch table members
-
-
+	authorized.PATCH("/api/tables/:id/vat", tablecontroller.UpdateTableVat(queries)) //update table VAT
 
 	}
 	

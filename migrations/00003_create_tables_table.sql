@@ -10,9 +10,10 @@ CREATE TABLE tables (
     status VARCHAR(20) NOT NULL DEFAULT 'open',   -- Status of the table (e.g., 'open', 'locked', 'closed', 'paid')   
     menu_url TEXT,                      
     members INTEGER[] NOT NULL, -- Array of user IDs
+    vat DECIMAL(5, 2),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    closed_at TIMESTAMPTZ 
+    closed_at TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_tables_table_code ON tables(table_code);

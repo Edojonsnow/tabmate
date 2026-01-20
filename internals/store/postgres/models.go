@@ -39,6 +39,7 @@ type Tables struct {
 	Status         string             `json:"status"`
 	MenuUrl        pgtype.Text        `json:"menu_url"`
 	Members        []int32            `json:"members"`
+	Vat            pgtype.Numeric     `json:"vat"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	ClosedAt       pgtype.Timestamptz `json:"closed_at"`

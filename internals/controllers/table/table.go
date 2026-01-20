@@ -590,6 +590,32 @@ func NewTable(id uuid.UUID, code string) *Table {
 	}
 }
 
+func UpdateTableVat(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tableID := c.Param("id")
+
+		var req struct {
+			Vat pgtype.Numeric `json:"vat"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
+		updatedTable, err := queries.UpdateTableVat(c, tabmate.UpdateTableVatParams{
+			ID:  pgtype.UUID{Bytes: uuid.MustParse(tableID), Valid: true},
+			Vat: req.Vat,
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update table VAT"})
+			return
+		}
+
+		c.JSON(http.StatusOK, updatedTable)
+	}
+}
+
 func (t *Table) Run() {
 	for {
 		select {

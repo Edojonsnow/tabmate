@@ -91,6 +91,7 @@ type Querier interface {
 	UpdateTableName(ctx context.Context, arg UpdateTableNameParams) (Tables, error)
 	UpdateTableRestaurantName(ctx context.Context, arg UpdateTableRestaurantNameParams) (Tables, error)
 	UpdateTableStatus(ctx context.Context, arg UpdateTableStatusParams) (Tables, error)
+	UpdateTableVat(ctx context.Context, arg UpdateTableVatParams) (Tables, error)
 	UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams) (Users, error)
 	// Updates the name of a user given their ID and returns the updated user row.
 	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) (Users, error)

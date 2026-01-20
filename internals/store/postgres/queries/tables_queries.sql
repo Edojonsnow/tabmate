@@ -95,3 +95,9 @@ WHERE table_code = $1;
 -- name: CountOpenTables :one
 SELECT COUNT(*) FROM tables
 WHERE status = 'open';
+
+-- name: UpdateTableVat :one
+UPDATE tables
+SET vat = $2, updated_at = NOW()
+WHERE id = $1
+RETURNING *;
