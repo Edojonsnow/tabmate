@@ -6,6 +6,7 @@ import (
 	authcontroller "tabmate/internals/controllers/auth"
 	tablecontroller "tabmate/internals/controllers/table"
 	usercontroller "tabmate/internals/controllers/user"
+	billcontroller "tabmate/internals/controllers/fixedbills"
 	"tabmate/internals/middleware"
 	tabmate "tabmate/internals/store/postgres"
 
@@ -47,22 +48,41 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 		})
 
 		
+		// ============================================
+		// TABLE ROUTES (existing - for individual ordering)
+		// ============================================
 		authorized.POST("/api/create-table", tablecontroller.CreateTable(queries))
 		authorized.POST("/api/tables/add-item-to-order", tablecontroller.AddItemToTable(queries))
-		authorized.POST("/api/join-table/:code", tablecontroller.JoinTable(queries)) //join table by code
+		authorized.POST("/api/join-table/:code", tablecontroller.JoinTable(queries))
+		authorized.GET("/api/tables/:code", tablecontroller.GetTableHandler(queries))
+		authorized.GET("/api/tables/:code/members", tablecontroller.FetchTableMembers(queries))
+		authorized.GET("/api/tables/:code/table-items", tablecontroller.ListItemsWithUserDetailsInTable(queries))
+		authorized.GET("/api/get-user-tables", tablecontroller.ListTablesForUser(queries))
 
-
-
+		// Table Items Management
 		authorized.POST("/api/items", tablecontroller.AddMenuItemsToDB(queries))
 		authorized.PATCH("/api/items/:id", tablecontroller.UpdateItemQuantity(queries))
-		authorized.GET("/api/tables/:code/table-items", tablecontroller.ListItemsWithUserDetailsInTable(queries))
 		authorized.DELETE("/api/items/:id", tablecontroller.DeleteItemFromTable(queries))
 		authorized.POST("/api/tables/:code/sync", tablecontroller.SyncTableItems(pool))
 
-		authorized.GET("/api/get-user-tables", tablecontroller.ListTablesForUser(queries)) //list tables for user
-		authorized.GET("/api/tables/:code/members", tablecontroller.FetchTableMembers(queries)) //fetch table members
-		authorized.PATCH("/api/tables/:code/vat", tablecontroller.UpdateTableVat(queries)) //update table VAT
-
+		// ============================================
+		// FIXED BILL ROUTES (new - for equal splitting)
+		// ============================================
+		// Bill Creation & Management
+		authorized.POST("/api/create-bill", billcontroller.CreateFixedBill(queries))
+		authorized.GET("/api/bills/:code", billcontroller.GetFixedBillByCode(queries))
+		
+		// Bill Membership
+		authorized.POST("/api/join-bill/:code", billcontroller.JoinFixedBill(queries))
+		authorized.GET("/api/bills/:code/members", billcontroller.GetBillMembers(queries))
+		authorized.DELETE("/api/bills/:code/leave", billcontroller.LeaveBill(queries))
+		
+		// Bill Split & Settlement
+		authorized.GET("/api/bills/:code/split", billcontroller.GetBillSplit(queries))
+		authorized.POST("/api/bills/:code/settle", billcontroller.MarkAsSettled(queries))
+		
+		// User's Bills (similar to get-user-tables)
+		authorized.GET("/api/get-user-bills", billcontroller.ListBillsForUser(queries))
 	}
 	
 	
