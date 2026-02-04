@@ -8,6 +8,29 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type BillMembers struct {
+	BillID     pgtype.UUID        `json:"bill_id"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	AmountOwed pgtype.Numeric     `json:"amount_owed"`
+	IsSettled  bool               `json:"is_settled"`
+	SettledAt  pgtype.Timestamptz `json:"settled_at"`
+	Role       string             `json:"role"`
+	JoinedAt   pgtype.Timestamptz `json:"joined_at"`
+}
+
+type Fixedbills struct {
+	ID          pgtype.UUID        `json:"id"`
+	CreatedBy   pgtype.UUID        `json:"created_by"`
+	BillCode    string             `json:"bill_code"`
+	Name        string             `json:"name"`
+	Description pgtype.Text        `json:"description"`
+	TotalAmount pgtype.Numeric     `json:"total_amount"`
+	Status      string             `json:"status"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	SettledAt   pgtype.Timestamptz `json:"settled_at"`
+}
+
 type Items struct {
 	ID                 pgtype.UUID        `json:"id"`
 	TableCode          string             `json:"table_code"`
