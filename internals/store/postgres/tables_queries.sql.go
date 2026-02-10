@@ -11,39 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const addMemberToTable = `-- name: AddMemberToTable :one
-UPDATE tables
-SET members = array_append(members, $2), updated_at = NOW()
-WHERE id = $1 AND NOT ($2 = ANY(members)) -- Ensure member_id is not already in the array
-RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, members, vat, created_at, updated_at, closed_at
-`
-
-type AddMemberToTableParams struct {
-	ID          pgtype.UUID `json:"id"`
-	ArrayAppend interface{} `json:"array_append"`
-}
-
-// Appends a new member_id to the members array if not already present.
-func (q *Queries) AddMemberToTable(ctx context.Context, arg AddMemberToTableParams) (Tables, error) {
-	row := q.db.QueryRow(ctx, addMemberToTable, arg.ID, arg.ArrayAppend)
-	var i Tables
-	err := row.Scan(
-		&i.ID,
-		&i.CreatedBy,
-		&i.TableCode,
-		&i.Name,
-		&i.RestaurantName,
-		&i.Status,
-		&i.MenuUrl,
-		&i.Members,
-		&i.Vat,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.ClosedAt,
-	)
-	return i, err
-}
-
 const checkIfTableCodeExists = `-- name: CheckIfTableCodeExists :one
 SELECT EXISTS(SELECT 1 FROM tables WHERE table_code = $1)
 `
@@ -68,9 +35,9 @@ func (q *Queries) CountOpenTables(ctx context.Context) (int64, error) {
 }
 
 const createTable = `-- name: CreateTable :one
-INSERT INTO tables  ( created_by, table_code, name, restaurant_name, status, menu_url, members )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, members, vat, created_at, updated_at, closed_at
+INSERT INTO tables  ( created_by, table_code, name, restaurant_name, status, menu_url )
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at
 `
 
 type CreateTableParams struct {
@@ -80,7 +47,6 @@ type CreateTableParams struct {
 	RestaurantName pgtype.Text `json:"restaurant_name"`
 	Status         string      `json:"status"`
 	MenuUrl        pgtype.Text `json:"menu_url"`
-	Members        []int32     `json:"members"`
 }
 
 func (q *Queries) CreateTable(ctx context.Context, arg CreateTableParams) (Tables, error) {
@@ -91,7 +57,6 @@ func (q *Queries) CreateTable(ctx context.Context, arg CreateTableParams) (Table
 		arg.RestaurantName,
 		arg.Status,
 		arg.MenuUrl,
-		arg.Members,
 	)
 	var i Tables
 	err := row.Scan(
@@ -102,7 +67,6 @@ func (q *Queries) CreateTable(ctx context.Context, arg CreateTableParams) (Table
 		&i.RestaurantName,
 		&i.Status,
 		&i.MenuUrl,
-		&i.Members,
 		&i.Vat,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -156,7 +120,7 @@ func (q *Queries) GetAllTableCodes(ctx context.Context) ([]string, error) {
 }
 
 const getTableByCode = `-- name: GetTableByCode :one
-SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, members, vat, created_at, updated_at, closed_at FROM tables
+SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at FROM tables
 WHERE table_code = $1
 `
 
@@ -171,7 +135,6 @@ func (q *Queries) GetTableByCode(ctx context.Context, tableCode string) (Tables,
 		&i.RestaurantName,
 		&i.Status,
 		&i.MenuUrl,
-		&i.Members,
 		&i.Vat,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -181,7 +144,7 @@ func (q *Queries) GetTableByCode(ctx context.Context, tableCode string) (Tables,
 }
 
 const getTableByID = `-- name: GetTableByID :one
-SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, members, vat, created_at, updated_at, closed_at FROM tables
+SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at FROM tables
 WHERE id = $1
 `
 
@@ -196,7 +159,6 @@ func (q *Queries) GetTableByID(ctx context.Context, id pgtype.UUID) (Tables, err
 		&i.RestaurantName,
 		&i.Status,
 		&i.MenuUrl,
-		&i.Members,
 		&i.Vat,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -205,49 +167,8 @@ func (q *Queries) GetTableByID(ctx context.Context, id pgtype.UUID) (Tables, err
 	return i, err
 }
 
-const listOpenTablesForMember = `-- name: ListOpenTablesForMember :many
-SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, members, vat, created_at, updated_at, closed_at FROM tables
-WHERE status = 'open' AND $1 = ANY(members) -- $1 is the user_id to search for
-ORDER BY created_at DESC
-`
-
-// Finds open tables where the given user ID is a member of the 'members' array.
-// Requires a GIN index on 'members' for good performance on large tables.
-func (q *Queries) ListOpenTablesForMember(ctx context.Context, members []int32) ([]Tables, error) {
-	rows, err := q.db.Query(ctx, listOpenTablesForMember, members)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Tables{}
-	for rows.Next() {
-		var i Tables
-		if err := rows.Scan(
-			&i.ID,
-			&i.CreatedBy,
-			&i.TableCode,
-			&i.Name,
-			&i.RestaurantName,
-			&i.Status,
-			&i.MenuUrl,
-			&i.Members,
-			&i.Vat,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ClosedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listTablesByStatus = `-- name: ListTablesByStatus :many
-SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, members, vat, created_at, updated_at, closed_at FROM tables
+SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at FROM tables
 WHERE status = $1
 ORDER BY created_at DESC
 `
@@ -269,7 +190,6 @@ func (q *Queries) ListTablesByStatus(ctx context.Context, status string) ([]Tabl
 			&i.RestaurantName,
 			&i.Status,
 			&i.MenuUrl,
-			&i.Members,
 			&i.Vat,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -286,7 +206,7 @@ func (q *Queries) ListTablesByStatus(ctx context.Context, status string) ([]Tabl
 }
 
 const listTablesByUserID = `-- name: ListTablesByUserID :many
-SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, members, vat, created_at, updated_at, closed_at FROM tables
+SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at FROM tables
 WHERE created_by = $1
 ORDER BY created_at DESC
 `
@@ -308,7 +228,6 @@ func (q *Queries) ListTablesByUserID(ctx context.Context, createdBy pgtype.UUID)
 			&i.RestaurantName,
 			&i.Status,
 			&i.MenuUrl,
-			&i.Members,
 			&i.Vat,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -324,41 +243,8 @@ func (q *Queries) ListTablesByUserID(ctx context.Context, createdBy pgtype.UUID)
 	return items, nil
 }
 
-const removeMemberFromTable = `-- name: RemoveMemberFromTable :one
-UPDATE tables
-SET members = array_remove(members, $2), updated_at = NOW()
-WHERE id = $1
-RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, members, vat, created_at, updated_at, closed_at
-`
-
-type RemoveMemberFromTableParams struct {
-	ID          pgtype.UUID `json:"id"`
-	ArrayRemove interface{} `json:"array_remove"`
-}
-
-// Removes a specific member_id from the members array.
-func (q *Queries) RemoveMemberFromTable(ctx context.Context, arg RemoveMemberFromTableParams) (Tables, error) {
-	row := q.db.QueryRow(ctx, removeMemberFromTable, arg.ID, arg.ArrayRemove)
-	var i Tables
-	err := row.Scan(
-		&i.ID,
-		&i.CreatedBy,
-		&i.TableCode,
-		&i.Name,
-		&i.RestaurantName,
-		&i.Status,
-		&i.MenuUrl,
-		&i.Members,
-		&i.Vat,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.ClosedAt,
-	)
-	return i, err
-}
-
 const searchTablesByNameOrRestaurant = `-- name: SearchTablesByNameOrRestaurant :many
-SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, members, vat, created_at, updated_at, closed_at FROM tables
+SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at FROM tables
 WHERE
     (name ILIKE '%' || $1 || '%' OR restaurant_name ILIKE '%' || $1 || '%')
     AND status = 'open' 
@@ -382,7 +268,6 @@ func (q *Queries) SearchTablesByNameOrRestaurant(ctx context.Context, dollar_1 p
 			&i.RestaurantName,
 			&i.Status,
 			&i.MenuUrl,
-			&i.Members,
 			&i.Vat,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -402,7 +287,7 @@ const updateTableMenuURL = `-- name: UpdateTableMenuURL :one
 UPDATE tables
 SET menu_url = $2, updated_at = NOW()
 WHERE id = $1
-RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, members, vat, created_at, updated_at, closed_at
+RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at
 `
 
 type UpdateTableMenuURLParams struct {
@@ -421,7 +306,6 @@ func (q *Queries) UpdateTableMenuURL(ctx context.Context, arg UpdateTableMenuURL
 		&i.RestaurantName,
 		&i.Status,
 		&i.MenuUrl,
-		&i.Members,
 		&i.Vat,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -434,7 +318,7 @@ const updateTableName = `-- name: UpdateTableName :one
 UPDATE tables
 SET name = $2, updated_at = NOW()
 WHERE id = $1
-RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, members, vat, created_at, updated_at, closed_at
+RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at
 `
 
 type UpdateTableNameParams struct {
@@ -453,7 +337,6 @@ func (q *Queries) UpdateTableName(ctx context.Context, arg UpdateTableNameParams
 		&i.RestaurantName,
 		&i.Status,
 		&i.MenuUrl,
-		&i.Members,
 		&i.Vat,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -466,7 +349,7 @@ const updateTableRestaurantName = `-- name: UpdateTableRestaurantName :one
 UPDATE tables
 SET restaurant_name = $2, updated_at = NOW()
 WHERE id = $1
-RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, members, vat, created_at, updated_at, closed_at
+RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at
 `
 
 type UpdateTableRestaurantNameParams struct {
@@ -485,7 +368,6 @@ func (q *Queries) UpdateTableRestaurantName(ctx context.Context, arg UpdateTable
 		&i.RestaurantName,
 		&i.Status,
 		&i.MenuUrl,
-		&i.Members,
 		&i.Vat,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -501,7 +383,7 @@ SET
     closed_at = CASE WHEN $2 IN ('closed', 'paid') THEN NOW() ELSE closed_at END, -- Set closed_at if status changes to closed/paid
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, members, vat, created_at, updated_at, closed_at
+RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at
 `
 
 type UpdateTableStatusParams struct {
@@ -520,7 +402,6 @@ func (q *Queries) UpdateTableStatus(ctx context.Context, arg UpdateTableStatusPa
 		&i.RestaurantName,
 		&i.Status,
 		&i.MenuUrl,
-		&i.Members,
 		&i.Vat,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -533,7 +414,7 @@ const updateTableVat = `-- name: UpdateTableVat :one
 UPDATE tables
 SET vat = $2, updated_at = NOW()
 WHERE table_code = $1
-RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, members, vat, created_at, updated_at, closed_at
+RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at
 `
 
 type UpdateTableVatParams struct {
@@ -552,7 +433,6 @@ func (q *Queries) UpdateTableVat(ctx context.Context, arg UpdateTableVatParams) 
 		&i.RestaurantName,
 		&i.Status,
 		&i.MenuUrl,
-		&i.Members,
 		&i.Vat,
 		&i.CreatedAt,
 		&i.UpdatedAt,

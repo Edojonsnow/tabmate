@@ -144,7 +144,7 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 
 
 	// TABLES
-	router.GET("/api/tables/:code", tablecontroller.GetTableHandler(queries)) //get table by code
+
 	router.GET("/api/get-user", usercontroller.GetUser(queries))
 
 	// Print all registered routes

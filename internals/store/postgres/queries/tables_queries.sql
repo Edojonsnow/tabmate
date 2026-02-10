@@ -1,6 +1,6 @@
 -- name: CreateTable :one
-INSERT INTO tables  ( created_by, table_code, name, restaurant_name, status, menu_url, members )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO tables  ( created_by, table_code, name, restaurant_name, status, menu_url )
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: GetTableByID :one
@@ -22,12 +22,7 @@ SELECT * FROM tables
 WHERE status = $1
 ORDER BY created_at DESC;
 
--- name: ListOpenTablesForMember :many
--- Finds open tables where the given user ID is a member of the 'members' array.
--- Requires a GIN index on 'members' for good performance on large tables.
-SELECT * FROM tables
-WHERE status = 'open' AND $1 = ANY(members) -- $1 is the user_id to search for
-ORDER BY created_at DESC;
+
 
 -- name: CheckIfTableCodeExists :one
 SELECT EXISTS(SELECT 1 FROM tables WHERE table_code = $1);
@@ -67,20 +62,6 @@ RETURNING *;
 -- name: UpdateTableMenuURL :one
 UPDATE tables
 SET menu_url = $2, updated_at = NOW()
-WHERE id = $1
-RETURNING *;
-
--- name: AddMemberToTable :one
--- Appends a new member_id to the members array if not already present.
-UPDATE tables
-SET members = array_append(members, $2), updated_at = NOW()
-WHERE id = $1 AND NOT ($2 = ANY(members)) -- Ensure member_id is not already in the array
-RETURNING *;
-
--- name: RemoveMemberFromTable :one
--- Removes a specific member_id from the members array.
-UPDATE tables
-SET members = array_remove(members, $2), updated_at = NOW()
 WHERE id = $1
 RETURNING *;
 

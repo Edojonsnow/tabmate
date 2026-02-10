@@ -137,7 +137,6 @@ func CreateTable(queries tabmate.Querier) gin.HandlerFunc {
 			RestaurantName: pgtype.Text{String: createTableReq.Restaurant, Valid: true},
 			Status:         "open",
 			MenuUrl:        pgtype.Text{Valid: false},
-			Members:        []int32{int32(pgUserID.Bytes[15])},
 		})
 		if err != nil {
 			log.Printf("Database error creating table: %v", err)

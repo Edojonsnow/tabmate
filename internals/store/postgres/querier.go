@@ -13,8 +13,6 @@ import (
 type Querier interface {
 	// Adds a single item to a table.
 	AddItemToTable(ctx context.Context, arg AddItemToTableParams) (Items, error)
-	// Appends a new member_id to the members array if not already present.
-	AddMemberToTable(ctx context.Context, arg AddMemberToTableParams) (Tables, error)
 	// Adds multiple items to the database.
 	AddMenuItemsToDB(ctx context.Context, arg AddMenuItemsToDBParams) error
 	AddUserToBill(ctx context.Context, arg AddUserToBillParams) (BillMembers, error)
@@ -76,9 +74,6 @@ type Querier interface {
 	ListMembersByTableID(ctx context.Context, tableID pgtype.UUID) ([]TableMembers, error)
 	// Retrieves all members of a specific table_id and include their user details.
 	ListMembersWithUserDetailsByTableID(ctx context.Context, tableID pgtype.UUID) ([]ListMembersWithUserDetailsByTableIDRow, error)
-	// Finds open tables where the given user ID is a member of the 'members' array.
-	// Requires a GIN index on 'members' for good performance on large tables.
-	ListOpenTablesForMember(ctx context.Context, members []int32) ([]Tables, error)
 	// Retrieves all members of a table_id where is_settled is true.
 	ListSettledMembersInTable(ctx context.Context, tableID pgtype.UUID) ([]TableMembers, error)
 	ListTablesByStatus(ctx context.Context, status string) ([]Tables, error)
@@ -93,8 +88,6 @@ type Querier interface {
 	MarkAllMembersInTableAsSettled(ctx context.Context, tableID pgtype.UUID) ([]TableMembers, error)
 	// When someone joins/leaves, recalculate everyone's amount_owed
 	RecalculateBillSplitForAllMembers(ctx context.Context, billID pgtype.UUID) error
-	// Removes a specific member_id from the members array.
-	RemoveMemberFromTable(ctx context.Context, arg RemoveMemberFromTableParams) (Tables, error)
 	RemoveUserFromBill(ctx context.Context, arg RemoveUserFromBillParams) error
 	// Removes a user from a specific table.
 	RemoveUserFromTable(ctx context.Context, arg RemoveUserFromTableParams) error
