@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"log"
+	"math/big"
 	"net/http"
 	"tabmate/internals/store/postgres"
 	
@@ -14,7 +15,7 @@ type CreateFixedBillRequest struct {
 	BillName    string  `json:"billname" binding:"required"`
 	Restaurant  string  `json:"restaurant"`
 	Description string  `json:"description"`
-	TotalAmount float64 `json:"total_amount" binding:"required,gt=0"`
+	TotalAmount string `json:"totalAmount" binding:"required"`
 }
 
 func CreateFixedBill(queries tabmate.Querier) gin.HandlerFunc {
@@ -28,7 +29,9 @@ func CreateFixedBill(queries tabmate.Querier) gin.HandlerFunc {
 		pgUserID := userID.(pgtype.UUID)
 		
 		var req CreateFixedBillRequest
+	
 		if err := c.ShouldBindJSON(&req); err != nil {
+			log.Printf("Error binding JSON: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 			return
 		}
@@ -37,6 +40,7 @@ func CreateFixedBill(queries tabmate.Querier) gin.HandlerFunc {
 		
 		var totalAmount pgtype.Numeric
 		if err := totalAmount.Scan(req.TotalAmount); err != nil {
+			log.Printf("Error scanning amount: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid amount"})
 			return
 		}
@@ -60,11 +64,12 @@ func CreateFixedBill(queries tabmate.Querier) gin.HandlerFunc {
 		_, err = queries.AddUserToBill(c, tabmate.AddUserToBillParams{
 			BillID:     bill.ID,
 			UserID:     pgUserID,
-			AmountOwed: pgtype.Numeric{Valid: false}, // Host doesn't owe
+			AmountOwed: pgtype.Numeric{Int: big.NewInt(0), Valid: true}, // Host doesn't owe TODO: MIGHT NEED TO RENAME THIS FOR BETTER CLARITY, SEEMS CONFUSING
 			Role:       "host",
 		})
 		
 		if err != nil {
+			log.Printf("Error adding host: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add host"})
 			return
 		}
@@ -73,7 +78,7 @@ func CreateFixedBill(queries tabmate.Querier) gin.HandlerFunc {
 			"code":         billCode,
 			"id":           uuid.UUID(bill.ID.Bytes).String(),
 			"name":         req.BillName,
-			"total_amount": req.TotalAmount,
+			"totalAmount": req.TotalAmount,
 		})
 	}
 }
