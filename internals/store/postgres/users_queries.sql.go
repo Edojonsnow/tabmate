@@ -184,6 +184,51 @@ func (q *Queries) ListAllUsers(ctx context.Context) ([]Users, error) {
 	return items, nil
 }
 
+const searchUsersByName = `-- name: SearchUsersByName :many
+SELECT id, name, email, profile_picture_url FROM users
+WHERE name ILIKE '%' || $1 || '%'
+  AND id != $2
+ORDER BY name ASC
+LIMIT 10
+`
+
+type SearchUsersByNameParams struct {
+	Column1 pgtype.Text `json:"column_1"`
+	ID      pgtype.UUID `json:"id"`
+}
+
+type SearchUsersByNameRow struct {
+	ID                pgtype.UUID `json:"id"`
+	Name              pgtype.Text `json:"name"`
+	Email             string      `json:"email"`
+	ProfilePictureUrl pgtype.Text `json:"profile_picture_url"`
+}
+
+func (q *Queries) SearchUsersByName(ctx context.Context, arg SearchUsersByNameParams) ([]SearchUsersByNameRow, error) {
+	rows, err := q.db.Query(ctx, searchUsersByName, arg.Column1, arg.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchUsersByNameRow{}
+	for rows.Next() {
+		var i SearchUsersByNameRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Email,
+			&i.ProfilePictureUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateUserEmail = `-- name: UpdateUserEmail :one
 UPDATE users
 SET

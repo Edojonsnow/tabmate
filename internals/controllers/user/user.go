@@ -3,10 +3,13 @@ package controllers
 import (
 	"context"
 	"net/http"
+	"strings"
 	"tabmate/internals/auth"
 	tabmate "tabmate/internals/store/postgres"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // UserCache stores user details in memory
@@ -46,6 +49,44 @@ func CreateUser(queries tabmate.Querier) gin.HandlerFunc {
 			}
 	
 		c.JSON(http.StatusCreated, user)
+	}
+}
+
+func SearchUsers(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		pgUserID := userID.(pgtype.UUID)
+
+		q := strings.TrimSpace(c.Query("q"))
+		if len(q) < 2 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Search query must be at least 2 characters"})
+			return
+		}
+
+		users, err := queries.SearchUsersByName(c, tabmate.SearchUsersByNameParams{
+			Column1: pgtype.Text{String: q, Valid: true},
+			ID:      pgUserID,
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Search failed"})
+			return
+		}
+
+		var response []gin.H
+		for _, u := range users {
+			response = append(response, gin.H{
+				"id":                  uuid.UUID(u.ID.Bytes).String(),
+				"name":                u.Name.String,
+				"email":               u.Email,
+				"profile_picture_url": u.ProfilePictureUrl.String,
+			})
+		}
+
+		if response == nil {
+			response = []gin.H{}
+		}
+
+		c.JSON(http.StatusOK, response)
 	}
 }
 

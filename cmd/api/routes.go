@@ -74,6 +74,7 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 		
 		// Bill Membership
 		authorized.POST("/api/join-bill/:code", billcontroller.JoinFixedBill(queries))
+		authorized.POST("/api/bills/:code/add-member", billcontroller.AddMemberToBill(queries))
 		authorized.GET("/api/bills/:code/members", billcontroller.GetBillMembers(queries))
 		authorized.DELETE("/api/bills/:code/leave", billcontroller.LeaveBill(queries))
 		
@@ -83,6 +84,9 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 		
 		// User's Bills (similar to get-user-tables)
 		authorized.GET("/api/get-user-bills", billcontroller.ListBillsForUser(queries))
+
+		// User Search
+		authorized.GET("/api/users/search", usercontroller.SearchUsers(queries))
 	}
 	
 	

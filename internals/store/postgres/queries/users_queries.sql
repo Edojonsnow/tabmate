@@ -66,3 +66,10 @@ WHERE id = $1;
 DELETE FROM users
 WHERE cognito_sub = $1;
 
+-- name: SearchUsersByName :many
+SELECT id, name, email, profile_picture_url FROM users
+WHERE name ILIKE '%' || $1 || '%'
+  AND id != $2
+ORDER BY name ASC
+LIMIT 10;
+

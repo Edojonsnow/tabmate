@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"log"
 	"math/big"
 	"net/http"
@@ -15,7 +16,7 @@ type CreateFixedBillRequest struct {
 	BillName    string  `json:"billname" binding:"required"`
 	Restaurant  string  `json:"restaurant"`
 	Description string  `json:"description"`
-	TotalAmount string `json:"totalAmount" binding:"required"`
+	TotalAmount float64 `json:"totalAmount" binding:"required"`
 }
 
 func CreateFixedBill(queries tabmate.Querier) gin.HandlerFunc {
@@ -39,7 +40,7 @@ func CreateFixedBill(queries tabmate.Querier) gin.HandlerFunc {
 		billCode := uuid.New().String()[:8]
 		
 		var totalAmount pgtype.Numeric
-		if err := totalAmount.Scan(req.TotalAmount); err != nil {
+		if err := totalAmount.Scan(fmt.Sprintf("%f", req.TotalAmount)); err != nil {
 			log.Printf("Error scanning amount: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid amount"})
 			return
@@ -272,6 +273,91 @@ func MarkAsSettled(queries tabmate.Querier) gin.HandlerFunc {
 		}
 		
 		c.JSON(http.StatusOK, gin.H{"message": "Marked as settled"})
+	}
+}
+
+type AddMemberRequest struct {
+	UserID string `json:"user_id" binding:"required"`
+}
+
+func AddMemberToBill(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		code := c.Param("code")
+		requesterID, _ := c.Get("user_id")
+		pgRequesterID := requesterID.(pgtype.UUID)
+
+		var req AddMemberRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "user_id is required"})
+			return
+		}
+
+		// Get bill
+		bill, err := queries.GetFixedBillByCode(c, code)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Bill not found"})
+			return
+		}
+
+		// Verify requester is the host
+		hostMember, err := queries.GetBillMember(c, tabmate.GetBillMemberParams{
+			BillID: bill.ID,
+			UserID: pgRequesterID,
+		})
+		if err != nil || hostMember.Role != "host" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only the bill host can add members"})
+			return
+		}
+
+		// Parse target user UUID
+		targetUUID, err := uuid.Parse(req.UserID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+			return
+		}
+		pgTargetID := pgtype.UUID{Bytes: targetUUID, Valid: true}
+
+		// Check target user exists
+		_, err = queries.GetUserByID(c, pgTargetID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			return
+		}
+
+		// Check not already a member
+		_, err = queries.GetBillMember(c, tabmate.GetBillMemberParams{
+			BillID: bill.ID,
+			UserID: pgTargetID,
+		})
+		if err == nil {
+			c.JSON(http.StatusConflict, gin.H{"error": "User is already a member of this bill"})
+			return
+		}
+
+		// Add member with zero placeholder (recalculate will set the real amount)
+		_, err = queries.AddUserToBill(c, tabmate.AddUserToBillParams{
+			BillID:     bill.ID,
+			UserID:     pgTargetID,
+			AmountOwed: pgtype.Numeric{Int: big.NewInt(0), Valid: true},
+			Role:       "guest",
+		})
+		if err != nil {
+			log.Printf("Error adding member: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add member"})
+			return
+		}
+
+		// Recalculate split for everyone
+		queries.RecalculateBillSplitForAllMembers(c, bill.ID)
+
+		members, _ := queries.ListBillMembersByBillID(c, bill.ID)
+		totalAmountFloat, _ := bill.TotalAmount.Float64Value()
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":            "Member added successfully",
+			"members_count":      len(members),
+			"amount_per_person":  totalAmountFloat.Float64 / float64(len(members)),
+		})
 	}
 }
 

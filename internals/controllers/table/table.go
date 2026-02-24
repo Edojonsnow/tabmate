@@ -421,6 +421,7 @@ func SyncTableItems(pool *pgxpool.Pool) gin.HandlerFunc {
 					})
 					if err != nil {
 						c.JSON(500, gin.H{"error": err.Error()})
+						fmt.Print("Error adding item to table: ", err)
 						return
 					}
 				}

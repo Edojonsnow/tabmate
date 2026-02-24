@@ -92,6 +92,7 @@ type Querier interface {
 	// Removes a user from a specific table.
 	RemoveUserFromTable(ctx context.Context, arg RemoveUserFromTableParams) error
 	SearchTablesByNameOrRestaurant(ctx context.Context, dollar_1 pgtype.Text) ([]Tables, error)
+	SearchUsersByName(ctx context.Context, arg SearchUsersByNameParams) ([]SearchUsersByNameRow, error)
 	// Updates the is_settled status for a user in a specific table.
 	SetMemberSettledStatus(ctx context.Context, arg SetMemberSettledStatusParams) (TableMembers, error)
 	UpdateBillMemberSettledStatus(ctx context.Context, arg UpdateBillMemberSettledStatusParams) (BillMembers, error)
