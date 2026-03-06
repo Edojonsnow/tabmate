@@ -59,11 +59,12 @@ type SignUpRequest struct {
 
 // LoginResponse represents the JSON response to the React frontend
 type LoginResponse struct {
-	Success     bool   `json:"success"`
-	Message     string `json:"message,omitempty"`
-	Token       string `json:"token,omitempty"`
-	AccessToken string `json:"access_token,omitempty"`
-	User        *struct {
+	Success      bool   `json:"success"`
+	Message      string `json:"message,omitempty"`
+	Token        string `json:"token,omitempty"`
+	AccessToken  string `json:"access_token,omitempty"`
+	RefreshToken string `json:"refresh_token,omitempty"`
+	User         *struct {
 		ID       string `json:"id"`
 		Username string `json:"username"`
 		Email    string `json:"email"`
@@ -142,10 +143,11 @@ func HandleLogin(queries tabmate.Querier) gin.HandlerFunc {
 
 		// Return success response with token and user info
 		c.JSON(http.StatusOK, LoginResponse{
-			Success: true,
-			Message: "Login successful",
-			Token:   *authResult.IdToken,
-			AccessToken: *authResult.AccessToken,
+			Success:      true,
+			Message:      "Login successful",
+			Token:        *authResult.IdToken,
+			AccessToken:  *authResult.AccessToken,
+			RefreshToken: *authResult.RefreshToken,
 			User: &struct {
 				ID       string `json:"id"`
 				Username string `json:"username"`
@@ -359,6 +361,32 @@ func HandleCallback(c *gin.Context) {
 }
 
 
+
+// HandleRefreshToken exchanges a refresh token for a new ID token and access token.
+// This is a public endpoint — no auth middleware needed since the caller may not have a valid token.
+func HandleRefreshToken() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			RefreshToken string `json:"refresh_token" binding:"required"`
+			Username     string `json:"username" binding:"required"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+			return
+		}
+
+		authResult, err := actions.RefreshTokens(c.Request.Context(), req.RefreshToken, req.Username)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token refresh failed. Please log in again."})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"token":        *authResult.IdToken,
+			"access_token": *authResult.AccessToken,
+		})
+	}
+}
 
 // HandleListUsers displays all users from the Cognito User Pool
 func HandleListUsers(c *gin.Context) {

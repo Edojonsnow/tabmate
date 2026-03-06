@@ -105,6 +105,24 @@ func (actor CognitoActions) ForgotPassword(ctx context.Context, userName string)
 	return output.CodeDeliveryDetails, err
 }
 
+// RefreshTokens exchanges a refresh token for a new ID token and access token.
+// Cognito still requires the SECRET_HASH, which is computed from the username.
+func (actor CognitoActions) RefreshTokens(ctx context.Context, refreshToken string, username string) (*types.AuthenticationResultType, error) {
+	output, err := actor.CognitoClient.InitiateAuth(ctx, &cognitoidentityprovider.InitiateAuthInput{
+		AuthFlow: "REFRESH_TOKEN_AUTH",
+		ClientId: aws.String(actor.ClientID),
+		AuthParameters: map[string]string{
+			"REFRESH_TOKEN": refreshToken,
+			"SECRET_HASH":   actor.computeSecretHash(username),
+		},
+	})
+	if err != nil {
+		log.Printf("Couldn't refresh tokens for user %v. Here's why: %v\n", username, err)
+		return nil, err
+	}
+	return output.AuthenticationResult, nil
+}
+
 func (actor CognitoActions) ConfirmForgotPassword(ctx context.Context, code string, userName string, password string) error {
 	_, err := actor.CognitoClient.ConfirmForgotPassword(ctx, &cognitoidentityprovider.ConfirmForgotPasswordInput{
 		ClientId:         aws.String(actor.ClientID),

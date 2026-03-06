@@ -29,8 +29,9 @@ func AuthMiddleware(queries tabmate.Querier) gin.HandlerFunc {
 		// Verify the token using OIDC provider
 		userInfo, err := auth.GetUserInfo(context.Background(), tokenString)
 		if err != nil {
-			log.Printf("Invalid auth token: %v, redirecting to login", err)
-			c.Redirect(http.StatusFound, "/login")
+			log.Printf("Invalid auth token: %v", err)
+			// Return 401 JSON — never a redirect. 
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			c.Abort()
 			return
 		}
@@ -47,14 +48,14 @@ func AuthMiddleware(queries tabmate.Querier) gin.HandlerFunc {
 				})
 				if err != nil {
 					log.Printf("Error creating user: %v", err)
-					c.Redirect(http.StatusFound, "/login")
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 					c.Abort()
 					return
 				}
 			} else {
 				// Handle other potential errors from GetUserByCognitoSub
 				log.Printf("Error checking for existing user: %v", err)
-				c.Redirect(http.StatusFound, "/login")
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 				c.Abort()
 				return
 			}
