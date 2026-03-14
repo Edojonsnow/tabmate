@@ -75,4 +75,5 @@ type Users struct {
 	Email             string             `json:"email"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	PushToken         pgtype.Text        `json:"push_token"`
 }

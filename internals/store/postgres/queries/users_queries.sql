@@ -73,3 +73,8 @@ WHERE name ILIKE '%' || $1 || '%'
 ORDER BY name ASC
 LIMIT 10;
 
+-- name: UpdateUserPushToken :exec
+UPDATE users
+SET push_token = $1, updated_at = NOW()
+WHERE id = $2;
+

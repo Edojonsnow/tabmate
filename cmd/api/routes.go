@@ -87,6 +87,9 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 
 		// User Search
 		authorized.GET("/api/users/search", usercontroller.SearchUsers(queries))
+
+		// Push Notifications
+		authorized.PATCH("/api/user/push-token", usercontroller.UpdatePushToken(queries))
 	}
 	
 	
@@ -103,7 +106,6 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 	router.GET("/reset-password", authcontroller.HandleResetPassword)
 	router.POST("/reset-password", authcontroller.HandleResetPassword)
 	router.GET("/callback", authcontroller.HandleCallback)
-	// Public — caller may not have a valid token, so this cannot be behind AuthMiddleware
 	router.POST("/refresh-token", authcontroller.HandleRefreshToken())
 	router.GET("/users", authcontroller.HandleListUsers)
 	router.GET("/logout", authcontroller.HandleLogout)

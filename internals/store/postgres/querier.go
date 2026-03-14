@@ -111,6 +111,7 @@ type Querier interface {
 	// Updates the name of a user given their ID and returns the updated user row.
 	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) (Users, error)
 	UpdateUserProfilePictureURL(ctx context.Context, arg UpdateUserProfilePictureURLParams) (Users, error)
+	UpdateUserPushToken(ctx context.Context, arg UpdateUserPushTokenParams) error
 }
 
 var _ Querier = (*Queries)(nil)

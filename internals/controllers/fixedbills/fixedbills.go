@@ -5,8 +5,9 @@ import (
 	"log"
 	"math/big"
 	"net/http"
+	"tabmate/internals/notifications"
 	"tabmate/internals/store/postgres"
-	
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -318,7 +319,7 @@ func AddMemberToBill(queries tabmate.Querier) gin.HandlerFunc {
 		pgTargetID := pgtype.UUID{Bytes: targetUUID, Valid: true}
 
 		// Check target user exists
-		_, err = queries.GetUserByID(c, pgTargetID)
+		targetUser, err := queries.GetUserByID(c, pgTargetID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 			return
@@ -353,10 +354,31 @@ func AddMemberToBill(queries tabmate.Querier) gin.HandlerFunc {
 		members, _ := queries.ListBillMembersByBillID(c, bill.ID)
 		totalAmountFloat, _ := bill.TotalAmount.Float64Value()
 
+		// Send push notification to the added user (fire-and-forget)
+		if targetUser.PushToken.Valid && targetUser.PushToken.String != "" {
+			hostUser, err := queries.GetUserByID(c, pgRequesterID)
+			hostName := "Someone"
+			if err == nil && hostUser.Name.Valid {
+				hostName = hostUser.Name.String
+			}
+
+			go func() {
+				err := notifications.SendExpoPushNotification(notifications.ExpoMessage{
+					To:    targetUser.PushToken.String,
+					Title: "You've been added to a bill",
+					Body:  fmt.Sprintf("%s added you to \"%s\"", hostName, bill.Name),
+					Data:  map[string]string{"billCode": bill.BillCode},
+				})
+				if err != nil {
+					log.Printf("Failed to send push notification to user %s: %v", req.UserID, err)
+				}
+			}()
+		}
+
 		c.JSON(http.StatusOK, gin.H{
-			"message":            "Member added successfully",
-			"members_count":      len(members),
-			"amount_per_person":  totalAmountFloat.Float64 / float64(len(members)),
+			"message":           "Member added successfully",
+			"members_count":     len(members),
+			"amount_per_person": totalAmountFloat.Float64 / float64(len(members)),
 		})
 	}
 }

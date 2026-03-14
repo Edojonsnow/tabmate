@@ -52,6 +52,34 @@ func CreateUser(queries tabmate.Querier) gin.HandlerFunc {
 	}
 }
 
+type UpdatePushTokenRequest struct {
+	PushToken string `json:"push_token" binding:"required"`
+}
+
+func UpdatePushToken(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		pgUserID := userID.(pgtype.UUID)
+
+		var req UpdatePushTokenRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "push_token is required"})
+			return
+		}
+
+		err := queries.UpdateUserPushToken(c, tabmate.UpdateUserPushTokenParams{
+			PushToken: pgtype.Text{String: req.PushToken, Valid: true},
+			ID:        pgUserID,
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update push token"})
+			return
+		}
+
+		c.Status(http.StatusNoContent)
+	}
+}
+
 func SearchUsers(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
