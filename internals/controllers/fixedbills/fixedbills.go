@@ -383,6 +383,77 @@ func AddMemberToBill(queries tabmate.Querier) gin.HandlerFunc {
 	}
 }
 
+func RemoveMemberFromBill(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		code := c.Param("code")
+		requesterID, _ := c.Get("user_id")
+		pgRequesterID := requesterID.(pgtype.UUID)
+
+		// Parse target user ID from URL param
+		targetUUID, err := uuid.Parse(c.Param("userId"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+			return
+		}
+		pgTargetID := pgtype.UUID{Bytes: targetUUID, Valid: true}
+
+		// Get bill
+		bill, err := queries.GetFixedBillByCode(c, code)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Bill not found"})
+			return
+		}
+
+		// Verify requester is the host
+		hostMember, err := queries.GetBillMember(c, tabmate.GetBillMemberParams{
+			BillID: bill.ID,
+			UserID: pgRequesterID,
+		})
+		if err != nil || hostMember.Role != "host" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only the bill host can remove members"})
+			return
+		}
+
+		// Prevent host from removing themselves
+		if pgRequesterID == pgTargetID {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Host cannot remove themselves from the bill"})
+			return
+		}
+
+		// Check target is actually a member
+		_, err = queries.GetBillMember(c, tabmate.GetBillMemberParams{
+			BillID: bill.ID,
+			UserID: pgTargetID,
+		})
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User is not a member of this bill"})
+			return
+		}
+
+		// Remove the member
+		err = queries.RemoveUserFromBill(c, tabmate.RemoveUserFromBillParams{
+			BillID: bill.ID,
+			UserID: pgTargetID,
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove member"})
+			return
+		}
+
+		// Recalculate split for remaining members
+		queries.RecalculateBillSplitForAllMembers(c, bill.ID)
+
+		members, _ := queries.ListBillMembersByBillID(c, bill.ID)
+		totalAmountFloat, _ := bill.TotalAmount.Float64Value()
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":           "Member removed successfully",
+			"members_count":     len(members),
+			"amount_per_person": totalAmountFloat.Float64 / float64(len(members)),
+		})
+	}
+}
+
 func ListBillsForUser(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, _ := c.Get("user_id")

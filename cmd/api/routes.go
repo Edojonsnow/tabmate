@@ -77,6 +77,7 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 		authorized.POST("/api/bills/:code/add-member", billcontroller.AddMemberToBill(queries))
 		authorized.GET("/api/bills/:code/members", billcontroller.GetBillMembers(queries))
 		authorized.DELETE("/api/bills/:code/leave", billcontroller.LeaveBill(queries))
+		authorized.DELETE("/api/bills/:code/members/:userId", billcontroller.RemoveMemberFromBill(queries))
 		
 		// Bill Split & Settlement
 		authorized.GET("/api/bills/:code/split", billcontroller.GetBillSplit(queries))
