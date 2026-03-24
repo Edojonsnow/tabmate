@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"context"
-	"database/sql"
 	"log"
 	"net/http"
 	"strings"
@@ -14,54 +13,42 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// AuthMiddleware checks if the user is authenticated
+// AuthMiddleware verifies a Clerk session token and resolves/auto-creates the DB user.
 func AuthMiddleware(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get the token from the cookie
-        authHeader := c.GetHeader("Authorization")
-        if authHeader == "" {
-            c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing Authorization header"})
-            c.Abort()
-            return
-        }
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing Authorization header"})
+			c.Abort()
+			return
+		}
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 
-		// Verify the token using OIDC provider
-		userInfo, err := auth.GetUserInfo(context.Background(), tokenString)
+		userInfo, err := auth.VerifyClerkToken(tokenString)
 		if err != nil {
-			log.Printf("Invalid auth token: %v", err)
-			// Return 401 JSON — never a redirect. 
+			log.Printf("Invalid Clerk token: %v", err)
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			c.Abort()
 			return
 		}
 
-		// Check if user already exists
+		// Look up user by Clerk user ID (stored in cognito_sub column).
 		user, err := queries.GetUserByCognitoSub(c, userInfo.Sub)
 		if err != nil {
-			// If user does not exist, create them
-			if err == sql.ErrNoRows {
-				user, err = queries.CreateUser(c, tabmate.CreateUserParams{
-					Name:            pgtype.Text{String: userInfo.Name, Valid: true},
-					CognitoSub:      userInfo.Sub,
-					Email:           userInfo.Email,
-				})
-				if err != nil {
-					log.Printf("Error creating user: %v", err)
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
-					c.Abort()
-					return
-				}
-			} else {
-				// Handle other potential errors from GetUserByCognitoSub
-				log.Printf("Error checking for existing user: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+			// Auto-create on first authenticated request.
+			user, err = queries.CreateUser(c, tabmate.CreateUserParams{
+				Name:       pgtype.Text{String: userInfo.Name, Valid: userInfo.Name != ""},
+				CognitoSub: userInfo.Sub,
+				Email:      userInfo.Email,
+			})
+			if err != nil {
+				log.Printf("Error auto-creating user: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 				c.Abort()
 				return
 			}
-		}			
+		}
 
-		// Set user info in context
 		c.Set("username", userInfo.Name)
 		c.Set("email", userInfo.Email)
 		c.Set("user_id", user.ID)
@@ -69,50 +56,27 @@ func AuthMiddleware(queries tabmate.Querier) gin.HandlerFunc {
 	}
 }
 
+// VerifyOIDCToken is used by the WebSocket route to authenticate without middleware.
 func VerifyOIDCToken(queries tabmate.Querier, tokenString string) tabmate.Users {
-    userInfo, err := auth.GetUserInfo(context.Background(), tokenString)
-    if err != nil {
-        log.Printf("Invalid OIDC token: %v", err)
-        return tabmate.Users{}
-    }
-
-    // Check if user exists in DB
-    user, err := queries.GetUserByCognitoSub(context.Background(), userInfo.Sub)
-    if err != nil {
-        if err == sql.ErrNoRows {
-            user, err = queries.CreateUser(context.Background(), tabmate.CreateUserParams{
-                Name:       pgtype.Text{String: userInfo.Name, Valid: true},
-                CognitoSub: userInfo.Sub,
-                Email:      userInfo.Email,
-            })
-            if err != nil {
-                log.Printf("Error creating user: %v", err)
-                return user
-            }
-        } else {
-            log.Printf("Error checking existing user: %v", err)
-            return user
-        }
-    }
-	
-
-    return user
-}
-
-// RedirectIfAuthenticated redirects to /profile if user is already logged in
-func RedirectIfAuthenticated() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		token, err := c.Cookie("auth_token")
-		if err == nil {
-			// Token exists, verify it
-			_, err := auth.GetUserInfo(context.Background(), token)
-			if err == nil {
-				// Valid token, redirect to profile
-				c.Redirect(http.StatusFound, "/profile")
-				c.Abort()
-				return
-			}
-		}
-		c.Next()
+	userInfo, err := auth.VerifyClerkToken(tokenString)
+	if err != nil {
+		log.Printf("Invalid Clerk token (WS): %v", err)
+		return tabmate.Users{}
 	}
+
+	ctx := context.Background()
+	user, err := queries.GetUserByCognitoSub(ctx, userInfo.Sub)
+	if err != nil {
+		user, err = queries.CreateUser(ctx, tabmate.CreateUserParams{
+			Name:       pgtype.Text{String: userInfo.Name, Valid: userInfo.Name != ""},
+			CognitoSub: userInfo.Sub,
+			Email:      userInfo.Email,
+		})
+		if err != nil {
+			log.Printf("Error auto-creating user (WS): %v", err)
+			return tabmate.Users{}
+		}
+	}
+
+	return user
 }
