@@ -1,10 +1,8 @@
 package controllers
 
 import (
-	"context"
 	"net/http"
 	"strings"
-	"tabmate/internals/auth"
 	tabmate "tabmate/internals/store/postgres"
 
 	"github.com/gin-gonic/gin"
@@ -118,37 +116,23 @@ func SearchUsers(queries tabmate.Querier) gin.HandlerFunc {
 	}
 }
 
+// GetUser returns the current authenticated user's profile.
+// Must be called on a protected route (AuthMiddleware sets user_id in context).
 func GetUser(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get the token from the cookie
-		token, err := c.Cookie("auth_token")
+		userID, _ := c.Get("user_id")
+		pgUserID := userID.(pgtype.UUID)
+
+		user, err := queries.GetUserByID(c, pgUserID)
 		if err != nil {
-			c.Redirect(http.StatusFound, "/login")
-			c.Abort()
+			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 			return
 		}
 
-		userInfo, err := auth.GetUserInfo(context.Background(), token)
-		if err != nil {
-			c.Redirect(http.StatusFound, "/login")
-			c.Abort()
-			return
-		}
-		
-		// Try to get user from cache first
-		if user, exists := GetUserFromCache(userInfo.Email); exists {
-			c.JSON(http.StatusOK, user)
-			return
-		}
-		// If not in cache, get from database
-		user, err := queries.GetUserByEmail(c, userInfo.Email)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Could not find user in Database"})
-			return
-		}
-		
-		// Update cache with new user data
-		UpdateUserCache(user)
-		c.JSON(http.StatusOK, user)
+		c.JSON(http.StatusOK, gin.H{
+			"id":    uuid.UUID(user.ID.Bytes).String(),
+			"name":  user.Name.String,
+			"email": user.Email,
+		})
 	}
 }

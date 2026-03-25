@@ -7,6 +7,7 @@ import (
 	tablecontroller "tabmate/internals/controllers/table"
 	usercontroller "tabmate/internals/controllers/user"
 	billcontroller "tabmate/internals/controllers/fixedbills"
+	menucontroller "tabmate/internals/controllers/menu"
 	"tabmate/internals/middleware"
 	tabmate "tabmate/internals/store/postgres"
 
@@ -67,6 +68,7 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 		authorized.DELETE("/api/items/:id", tablecontroller.DeleteItemFromTable(queries))
 		authorized.POST("/api/tables/:code/sync", tablecontroller.SyncTableItems(pool))
 		authorized.PATCH("/api/tables/:code", tablecontroller.UpdateTableVat(queries))
+		authorized.POST("/api/tables/:code/scan-menu", menucontroller.ScanMenu())
 
 		// ── Fixed Bills ───────────────────────────────────────────────────────
 		authorized.POST("/api/create-bill", billcontroller.CreateFixedBill(queries))
