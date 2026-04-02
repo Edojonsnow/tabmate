@@ -115,3 +115,55 @@ func GetScannedMenu(queries tabmate.Querier) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"items": items})
 	}
 }
+
+// UpdateScannedMenu replaces the stored menu items for a table.
+// PUT /api/tables/:code/menu
+func UpdateScannedMenu(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tableCode := c.Param("code")
+
+		var body struct {
+			Items []menu.MenuItem `json:"items"`
+		}
+		if err := c.ShouldBindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+			return
+		}
+
+		menuJSON, err := json.Marshal(body.Items)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to process menu"})
+			return
+		}
+
+		if err := queries.UpdateTableScannedMenu(c.Request.Context(), tabmate.UpdateTableScannedMenuParams{
+			TableCode:   tableCode,
+			ScannedMenu: pgtype.Text{String: string(menuJSON), Valid: true},
+		}); err != nil {
+			log.Printf("Failed to update scanned menu for table %s: %v", tableCode, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update menu"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	}
+}
+
+// DeleteScannedMenu clears the persisted scanned menu for a table.
+// DELETE /api/tables/:code/menu
+func DeleteScannedMenu(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tableCode := c.Param("code")
+
+		if err := queries.UpdateTableScannedMenu(c.Request.Context(), tabmate.UpdateTableScannedMenuParams{
+			TableCode:   tableCode,
+			ScannedMenu: pgtype.Text{Valid: false},
+		}); err != nil {
+			log.Printf("Failed to clear scanned menu for table %s: %v", tableCode, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to clear menu"})
+			return
+		}
+
+		c.Status(http.StatusNoContent)
+	}
+}

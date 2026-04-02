@@ -70,6 +70,8 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 		authorized.PATCH("/api/tables/:code", tablecontroller.UpdateTableVat(queries))
 		authorized.POST("/api/tables/:code/scan-menu", menucontroller.ScanMenu(queries))
 		authorized.GET("/api/tables/:code/menu", menucontroller.GetScannedMenu(queries))
+		authorized.PUT("/api/tables/:code/menu", menucontroller.UpdateScannedMenu(queries))
+		authorized.DELETE("/api/tables/:code/menu", menucontroller.DeleteScannedMenu(queries))
 
 		// ── Fixed Bills ───────────────────────────────────────────────────────
 		authorized.POST("/api/create-bill", billcontroller.CreateFixedBill(queries))
