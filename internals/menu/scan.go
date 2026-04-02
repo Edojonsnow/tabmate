@@ -18,6 +18,7 @@ type MenuItem struct {
 	Name        string  `json:"name"`
 	Price       float64 `json:"price"`
 	Description string  `json:"description"`
+	Category    string  `json:"category"` // empty string if menu has no sections
 }
 
 type geminiRequest struct {
@@ -70,12 +71,15 @@ func ScanMenuImage(imageBytes []byte, mediaType string) ([]MenuItem, error) {
 	prompt := `You are a menu parser. Extract all food and drink items from this menu image.
 		Return ONLY valid JSON with no markdown formatting, no code blocks, no explanation.
 		Use exactly this structure:
-		{"items":[{"name":"Item Name","price":12.99,"description":"Brief description or empty string"}]}
+		{"items":[{"name":"Item Name","price":12.99,"description":"Brief description or empty string","category":"Section name or empty string"}]}
 		Rules:
 		- If price is not visible or unclear, use 0
 		- If there is no description, use an empty string ""
+		- If the menu has named sections (e.g. Appetizers, Mains, Cocktails, Desserts, Starters, Sides), set category to that exact section name
+		- If there are no named sections on the menu, set category to ""
+		- All items within the same section must share the same category value
 		- Include every item you can read
-		- Do not include section headers, only actual food/drink items`
+		- Do not include section headers as items, only actual food/drink items`
 
 	reqBody := geminiRequest{
 		Contents: []geminiContent{
