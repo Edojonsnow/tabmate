@@ -82,3 +82,12 @@ UPDATE tables
 SET vat = $2, updated_at = NOW()
 WHERE table_code = $1
 RETURNING *;
+
+-- name: UpdateTableScannedMenu :exec
+UPDATE tables
+SET scanned_menu = $2, updated_at = NOW()
+WHERE table_code = $1;
+
+-- name: GetTableScannedMenu :one
+SELECT scanned_menu FROM tables
+WHERE table_code = $1;

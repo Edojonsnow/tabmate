@@ -1,26 +1,29 @@
 package menucontroller
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"tabmate/internals/menu"
 	"sync"
 	"time"
 
+	"tabmate/internals/menu"
+	tabmate "tabmate/internals/store/postgres"
+
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 var (
-	scanMu   sync.Mutex
+	scanMu     sync.Mutex
 	lastScanAt = make(map[string]time.Time)
 )
 
-// ScanMenu accepts a multipart image upload and returns parsed menu items.
+// ScanMenu accepts a multipart image upload, returns parsed menu items, and persists them to the table.
 // POST /api/tables/:code/scan-menu
-func ScanMenu() gin.HandlerFunc {
+func ScanMenu(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
-
 		userID := c.MustGet("user_id")
 		uid := fmt.Sprintf("%v", userID)
 
@@ -34,6 +37,8 @@ func ScanMenu() gin.HandlerFunc {
 		lastScanAt[uid] = time.Now()
 		scanMu.Unlock()
 
+		tableCode := c.Param("code")
+
 		file, header, err := c.Request.FormFile("menu_image")
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "menu_image file is required"})
@@ -41,13 +46,11 @@ func ScanMenu() gin.HandlerFunc {
 		}
 		defer file.Close()
 
-		// Validate size: max 5MB
 		if header.Size > 5*1024*1024 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "image too large, max 5MB"})
 			return
 		}
 
-		// Detect media type from Content-Type header or default to jpeg
 		mediaType := header.Header.Get("Content-Type")
 		if mediaType == "" {
 			mediaType = "image/jpeg"
@@ -64,6 +67,48 @@ func ScanMenu() gin.HandlerFunc {
 		if err != nil {
 			log.Printf("Menu scan error: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse menu"})
+			return
+		}
+
+		// Persist scanned menu to DB so all members can see it
+		menuJSON, err := json.Marshal(items)
+		if err != nil {
+			log.Printf("Failed to marshal menu items: %v", err)
+		} else {
+			if err := queries.UpdateTableScannedMenu(c.Request.Context(), tabmate.UpdateTableScannedMenuParams{
+				TableCode:   tableCode,
+				ScannedMenu: pgtype.Text{String: string(menuJSON), Valid: true},
+			}); err != nil {
+				log.Printf("Failed to persist scanned menu for table %s: %v", tableCode, err)
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"items": items})
+	}
+}
+
+// GetScannedMenu returns the persisted scanned menu for a table.
+// GET /api/tables/:code/menu
+func GetScannedMenu(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tableCode := c.Param("code")
+
+		scannedMenu, err := queries.GetTableScannedMenu(c.Request.Context(), tableCode)
+		if err != nil {
+			log.Printf("Failed to get scanned menu for table %s: %v", tableCode, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve menu"})
+			return
+		}
+
+		if !scannedMenu.Valid || scannedMenu.String == "" {
+			c.JSON(http.StatusOK, gin.H{"items": []any{}})
+			return
+		}
+
+		var items []menu.MenuItem
+		if err := json.Unmarshal([]byte(scannedMenu.String), &items); err != nil {
+			log.Printf("Failed to unmarshal scanned menu for table %s: %v", tableCode, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse stored menu"})
 			return
 		}
 
