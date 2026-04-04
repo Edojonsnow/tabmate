@@ -6,7 +6,7 @@ import (
 	authcontroller "tabmate/internals/controllers/auth"
 	tablecontroller "tabmate/internals/controllers/table"
 	usercontroller "tabmate/internals/controllers/user"
-	billcontroller "tabmate/internals/controllers/fixedbills"
+	splitcontroller "tabmate/internals/controllers/splits"
 	menucontroller "tabmate/internals/controllers/menu"
 	"tabmate/internals/middleware"
 	tabmate "tabmate/internals/store/postgres"
@@ -69,21 +69,22 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 		authorized.POST("/api/tables/:code/sync", tablecontroller.SyncTableItems(pool))
 		authorized.PATCH("/api/tables/:code", tablecontroller.UpdateTableVat(queries))
 		authorized.POST("/api/tables/:code/scan-menu", menucontroller.ScanMenu(queries))
+		authorized.POST("/api/tables/:code/extract-menu-url", menucontroller.ExtractMenuFromURL(queries))
 		authorized.GET("/api/tables/:code/menu", menucontroller.GetScannedMenu(queries))
 		authorized.PUT("/api/tables/:code/menu", menucontroller.UpdateScannedMenu(queries))
 		authorized.DELETE("/api/tables/:code/menu", menucontroller.DeleteScannedMenu(queries))
 
-		// ── Fixed Bills ───────────────────────────────────────────────────────
-		authorized.POST("/api/create-bill", billcontroller.CreateFixedBill(queries))
-		authorized.GET("/api/bills/:code", billcontroller.GetFixedBillByCode(queries))
-		authorized.POST("/api/join-bill/:code", billcontroller.JoinFixedBill(queries))
-		authorized.POST("/api/bills/:code/add-member", billcontroller.AddMemberToBill(queries))
-		authorized.GET("/api/bills/:code/members", billcontroller.GetBillMembers(queries))
-		authorized.DELETE("/api/bills/:code/leave", billcontroller.LeaveBill(queries))
-		authorized.DELETE("/api/bills/:code/members/:userId", billcontroller.RemoveMemberFromBill(queries))
-		authorized.GET("/api/bills/:code/split", billcontroller.GetBillSplit(queries))
-		authorized.POST("/api/bills/:code/settle", billcontroller.MarkAsSettled(queries))
-		authorized.GET("/api/get-user-bills", billcontroller.ListBillsForUser(queries))
+		// ── Splits ────────────────────────────────────────────────────────────
+		authorized.POST("/api/create-split", splitcontroller.CreateSplit(queries))
+		authorized.GET("/api/splits/:code", splitcontroller.GetSplitByCode(queries))
+		authorized.POST("/api/join-split/:code", splitcontroller.JoinSplit(queries))
+		authorized.POST("/api/splits/:code/add-member", splitcontroller.AddMemberToSplit(queries))
+		authorized.GET("/api/splits/:code/members", splitcontroller.GetSplitMembers(queries))
+		authorized.DELETE("/api/splits/:code/leave", splitcontroller.LeaveSplit(queries))
+		authorized.DELETE("/api/splits/:code/members/:userId", splitcontroller.RemoveMemberFromSplit(queries))
+		authorized.GET("/api/splits/:code/breakdown", splitcontroller.GetSplitBreakdown(queries))
+		authorized.POST("/api/splits/:code/settle", splitcontroller.MarkAsSettled(queries))
+		authorized.GET("/api/get-user-splits", splitcontroller.ListSplitsForUser(queries))
 	}
 
 	// ─── WebSocket (token via query param) ────────────────────────────────────

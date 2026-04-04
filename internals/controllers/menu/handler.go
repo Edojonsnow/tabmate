@@ -149,6 +149,43 @@ func UpdateScannedMenu(queries tabmate.Querier) gin.HandlerFunc {
 	}
 }
 
+// ExtractMenuFromURL scrapes a restaurant website and returns parsed menu items.
+// POST /api/tables/:code/extract-menu-url
+func ExtractMenuFromURL(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tableCode := c.Param("code")
+
+		var body struct {
+			URL string `json:"url"`
+		}
+		if err := c.ShouldBindJSON(&body); err != nil || body.URL == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "url is required"})
+			return
+		}
+
+		items, err := menu.ExtractMenuFromURL(body.URL)
+		if err != nil {
+			log.Printf("Menu URL extraction error for table %s: %v", tableCode, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to extract menu from URL"})
+			return
+		}
+
+		menuJSON, err := json.Marshal(items)
+		if err != nil {
+			log.Printf("Failed to marshal extracted menu for table %s: %v", tableCode, err)
+		} else {
+			if err := queries.UpdateTableScannedMenu(c.Request.Context(), tabmate.UpdateTableScannedMenuParams{
+				TableCode:   tableCode,
+				ScannedMenu: pgtype.Text{String: string(menuJSON), Valid: true},
+			}); err != nil {
+				log.Printf("Failed to persist extracted menu for table %s: %v", tableCode, err)
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"items": items})
+	}
+}
+
 // DeleteScannedMenu clears the persisted scanned menu for a table.
 // DELETE /api/tables/:code/menu
 func DeleteScannedMenu(queries tabmate.Querier) gin.HandlerFunc {

@@ -15,7 +15,7 @@ type Querier interface {
 	AddItemToTable(ctx context.Context, arg AddItemToTableParams) (Items, error)
 	// Adds multiple items to the database.
 	AddMenuItemsToDB(ctx context.Context, arg AddMenuItemsToDBParams) error
-	AddUserToBill(ctx context.Context, arg AddUserToBillParams) (BillMembers, error)
+	AddUserToSplit(ctx context.Context, arg AddUserToSplitParams) (SplitMembers, error)
 	// Adds a user to a table with an optional role, defaulting is_settled to false.
 	AddUserToTable(ctx context.Context, arg AddUserToTableParams) (TableMembers, error)
 	CheckIfCognitoSubExists(ctx context.Context, email string) (bool, error)
@@ -25,23 +25,20 @@ type Querier interface {
 	CheckIfUserIsMember(ctx context.Context, arg CheckIfUserIsMemberParams) (bool, error)
 	// Counts the number of members in a specific table.
 	CountMembersInTable(ctx context.Context, tableID pgtype.UUID) (int64, error)
-	CountOpenFixedBills(ctx context.Context) (int64, error)
+	CountOpenSplits(ctx context.Context) (int64, error)
 	CountOpenTables(ctx context.Context) (int64, error)
-	CountUnsettledBillMembers(ctx context.Context, billID pgtype.UUID) (int64, error)
-	CreateFixedBill(ctx context.Context, arg CreateFixedBillParams) (Fixedbills, error)
+	CountUnsettledSplitMembers(ctx context.Context, splitID pgtype.UUID) (int64, error)
+	CreateSplit(ctx context.Context, arg CreateSplitParams) (Splits, error)
 	CreateTable(ctx context.Context, arg CreateTableParams) (Tables, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (Users, error)
-	DeleteFixedBillByCode(ctx context.Context, billCode string) error
 	// Remove an item from a table
 	DeleteItemFromTable(ctx context.Context, id pgtype.UUID) error
+	DeleteSplitByCode(ctx context.Context, splitCode string) error
 	DeleteTableByCode(ctx context.Context, tableCode string) error
 	DeleteTableByID(ctx context.Context, id pgtype.UUID) error
 	DeleteUserByCognitoSub(ctx context.Context, cognitoSub string) error
 	DeleteUserByID(ctx context.Context, id pgtype.UUID) error
 	GetAllTableCodes(ctx context.Context) ([]string, error)
-	GetBillMember(ctx context.Context, arg GetBillMemberParams) (BillMembers, error)
-	GetFixedBillByCode(ctx context.Context, billCode string) (Fixedbills, error)
-	GetFixedBillByID(ctx context.Context, id pgtype.UUID) (Fixedbills, error)
 	// -- name: ListTablesByUserID :many
 	// -- Retrieves all membership records for a specific user_id.
 	// SELECT * FROM table_members
@@ -49,6 +46,9 @@ type Querier interface {
 	// ORDER BY joined_at DESC;
 	// Retrieves the role of a specific user in a specific table.
 	GetMemberRoleInTable(ctx context.Context, arg GetMemberRoleInTableParams) (string, error)
+	GetSplitByCode(ctx context.Context, splitCode string) (Splits, error)
+	GetSplitByID(ctx context.Context, id pgtype.UUID) (Splits, error)
+	GetSplitMember(ctx context.Context, arg GetSplitMemberParams) (SplitMembers, error)
 	GetTableByCode(ctx context.Context, tableCode string) (Tables, error)
 	GetTableByID(ctx context.Context, id pgtype.UUID) (Tables, error)
 	// Retrieves a specific membership record by table_id and user_id.
@@ -60,13 +60,6 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (Users, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (Users, error)
 	ListAllUsers(ctx context.Context) ([]Users, error)
-	ListBillMembersByBillID(ctx context.Context, billID pgtype.UUID) ([]BillMembers, error)
-	// Get all members of a bill with their user info
-	ListBillMembersWithUserDetails(ctx context.Context, billID pgtype.UUID) ([]ListBillMembersWithUserDetailsRow, error)
-	// Get all bills a user is a member of
-	ListBillsForUser(ctx context.Context, userID pgtype.UUID) ([]ListBillsForUserRow, error)
-	// Get all bills a user created
-	ListFixedBillsByUserID(ctx context.Context, createdBy pgtype.UUID) ([]Fixedbills, error)
 	// Retrieves all the items in a table.
 	ListItemsInTable(ctx context.Context, tableCode string) ([]Items, error)
 	// Retrieves all the items in a table with user details (username).
@@ -77,6 +70,12 @@ type Querier interface {
 	ListMembersWithUserDetailsByTableID(ctx context.Context, tableID pgtype.UUID) ([]ListMembersWithUserDetailsByTableIDRow, error)
 	// Retrieves all members of a table_id where is_settled is true.
 	ListSettledMembersInTable(ctx context.Context, tableID pgtype.UUID) ([]TableMembers, error)
+	ListSplitMembersBySplitID(ctx context.Context, splitID pgtype.UUID) ([]SplitMembers, error)
+	// Get all members of a split with their user info
+	ListSplitMembersWithUserDetails(ctx context.Context, splitID pgtype.UUID) ([]ListSplitMembersWithUserDetailsRow, error)
+	ListSplitsByUserID(ctx context.Context, createdBy pgtype.UUID) ([]Splits, error)
+	// Get all splits a user is a member of
+	ListSplitsForUser(ctx context.Context, userID pgtype.UUID) ([]ListSplitsForUserRow, error)
 	ListTablesByStatus(ctx context.Context, status string) ([]Tables, error)
 	ListTablesByUserID(ctx context.Context, createdBy pgtype.UUID) ([]Tables, error)
 	// For a specific user, list all tables they are a member of,
@@ -88,21 +87,21 @@ type Querier interface {
 	// Returns all updated member rows.
 	MarkAllMembersInTableAsSettled(ctx context.Context, tableID pgtype.UUID) ([]TableMembers, error)
 	// When someone joins/leaves, recalculate everyone's amount_owed
-	RecalculateBillSplitForAllMembers(ctx context.Context, billID pgtype.UUID) error
-	RemoveUserFromBill(ctx context.Context, arg RemoveUserFromBillParams) error
+	RecalculateSplitForAllMembers(ctx context.Context, splitID pgtype.UUID) error
+	RemoveUserFromSplit(ctx context.Context, arg RemoveUserFromSplitParams) error
 	// Removes a user from a specific table.
 	RemoveUserFromTable(ctx context.Context, arg RemoveUserFromTableParams) error
 	SearchTablesByNameOrRestaurant(ctx context.Context, dollar_1 pgtype.Text) ([]Tables, error)
 	SearchUsersByName(ctx context.Context, arg SearchUsersByNameParams) ([]SearchUsersByNameRow, error)
 	// Updates the is_settled status for a user in a specific table.
 	SetMemberSettledStatus(ctx context.Context, arg SetMemberSettledStatusParams) (TableMembers, error)
-	UpdateBillMemberSettledStatus(ctx context.Context, arg UpdateBillMemberSettledStatusParams) (BillMembers, error)
-	UpdateFixedBillAmount(ctx context.Context, arg UpdateFixedBillAmountParams) (Fixedbills, error)
-	UpdateFixedBillStatus(ctx context.Context, arg UpdateFixedBillStatusParams) (Fixedbills, error)
 	// Updates the quantity of a single item
 	UpdateItemQuantity(ctx context.Context, arg UpdateItemQuantityParams) (Items, error)
 	// Updates the role of a user within a specific table.
 	UpdateMemberRoleInTable(ctx context.Context, arg UpdateMemberRoleInTableParams) (TableMembers, error)
+	UpdateSplitAmount(ctx context.Context, arg UpdateSplitAmountParams) (Splits, error)
+	UpdateSplitMemberSettledStatus(ctx context.Context, arg UpdateSplitMemberSettledStatusParams) (SplitMembers, error)
+	UpdateSplitStatus(ctx context.Context, arg UpdateSplitStatusParams) (Splits, error)
 	UpdateTableMenuURL(ctx context.Context, arg UpdateTableMenuURLParams) (Tables, error)
 	UpdateTableName(ctx context.Context, arg UpdateTableNameParams) (Tables, error)
 	UpdateTableRestaurantName(ctx context.Context, arg UpdateTableRestaurantNameParams) (Tables, error)
