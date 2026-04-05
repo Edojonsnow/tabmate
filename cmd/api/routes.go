@@ -76,6 +76,8 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 
 		// ── Splits ────────────────────────────────────────────────────────────
 		authorized.POST("/api/create-split", splitcontroller.CreateSplit(queries))
+		authorized.POST("/api/create-split-from-receipt", splitcontroller.CreateSplitFromReceipt(queries))
+		authorized.POST("/api/splits/preview-receipt", splitcontroller.PreviewReceipt())
 		authorized.GET("/api/splits/:code", splitcontroller.GetSplitByCode(queries))
 		authorized.POST("/api/join-split/:code", splitcontroller.JoinSplit(queries))
 		authorized.POST("/api/splits/:code/add-member", splitcontroller.AddMemberToSplit(queries))
@@ -85,6 +87,12 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 		authorized.GET("/api/splits/:code/breakdown", splitcontroller.GetSplitBreakdown(queries))
 		authorized.POST("/api/splits/:code/settle", splitcontroller.MarkAsSettled(queries))
 		authorized.GET("/api/get-user-splits", splitcontroller.ListSplitsForUser(queries))
+		// Split items & claims
+		authorized.GET("/api/splits/:code/items", splitcontroller.GetSplitItems(queries))
+		authorized.PUT("/api/splits/:code/items", splitcontroller.ReplaceAllSplitItems(queries))
+		authorized.POST("/api/splits/:code/items", splitcontroller.MergeSplitItems(queries))
+		authorized.POST("/api/splits/:code/items/:itemId/claim", splitcontroller.ClaimItem(queries))
+		authorized.DELETE("/api/splits/:code/items/:itemId/claim", splitcontroller.UnclaimItem(queries))
 	}
 
 	// ─── WebSocket (token via query param) ────────────────────────────────────

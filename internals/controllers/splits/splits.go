@@ -157,6 +157,8 @@ func GetSplitByCode(queries tabmate.Querier) gin.HandlerFunc {
 		}
 
 		totalAmountFloat, _ := split.TotalAmount.Float64Value()
+		taxAmountFloat, _ := split.TaxAmount.Float64Value()
+		tipAmountFloat, _ := split.TipAmount.Float64Value()
 
 		response := gin.H{
 			"id":           uuid.UUID(split.ID.Bytes).String(),
@@ -165,6 +167,10 @@ func GetSplitByCode(queries tabmate.Querier) gin.HandlerFunc {
 			"description":  split.Description.String,
 			"total_amount": totalAmountFloat.Float64,
 			"status":       split.Status,
+			"split_type":   split.SplitType,
+			"tax_amount":   taxAmountFloat.Float64,
+			"tip_amount":   tipAmountFloat.Float64,
+			"tip_is_shared": split.TipIsShared,
 			"created_at":   split.CreatedAt.Time,
 		}
 
@@ -237,7 +243,90 @@ func LeaveSplit(queries tabmate.Querier) gin.HandlerFunc {
 }
 
 func GetSplitBreakdown(queries tabmate.Querier) gin.HandlerFunc {
-	return GetSplitMembers(queries)
+	return func(c *gin.Context) {
+		code := c.Param("code")
+
+		split, err := queries.GetSplitByCode(c, code)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Split not found"})
+			return
+		}
+
+		members, err := queries.ListSplitMembersWithUserDetails(c, split.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch members"})
+			return
+		}
+
+		// For simple splits just return the equal-split view
+		if split.SplitType != "receipt" {
+			var response []gin.H
+			for _, m := range members {
+				amountOwedFloat, _ := m.AmountOwed.Float64Value()
+				response = append(response, gin.H{
+					"user_id":     uuid.UUID(m.UserID.Bytes).String(),
+					"name":        m.UserName.String,
+					"email":       m.UserEmail,
+					"role":        m.Role,
+					"amount_owed": amountOwedFloat.Float64,
+					"is_settled":  m.IsSettled,
+					"joined_at":   m.JoinedAt.Time,
+				})
+			}
+			c.JSON(http.StatusOK, gin.H{"split_type": "simple", "members": response})
+			return
+		}
+
+		// Receipt split: build per-member item breakdown
+		allClaims, _ := queries.ListClaimsForSplit(c, split.ID)
+
+		taxFloat, _ := split.TaxAmount.Float64Value()
+		tipFloat, _ := split.TipAmount.Float64Value()
+		memberCount := float64(len(members))
+
+		taxShare := 0.0
+		tipShare := 0.0
+		if memberCount > 0 {
+			taxShare = taxFloat.Float64 / memberCount
+			if split.TipIsShared {
+				tipShare = tipFloat.Float64 / memberCount
+			}
+		}
+
+		// Build per-member claimed totals
+		claimedByUser := make(map[[16]byte]float64)
+		for _, claim := range allClaims {
+			priceFloat, _ := claim.ItemPrice.Float64Value()
+			claimedByUser[claim.ClaimedByUserID.Bytes] += priceFloat.Float64 * float64(claim.QuantityClaimed)
+		}
+
+		var response []gin.H
+		for _, m := range members {
+			amountOwedFloat, _ := m.AmountOwed.Float64Value()
+			claimedItems := claimedByUser[m.UserID.Bytes]
+
+			response = append(response, gin.H{
+				"user_id":       uuid.UUID(m.UserID.Bytes).String(),
+				"name":          m.UserName.String,
+				"email":         m.UserEmail,
+				"role":          m.Role,
+				"amount_owed":   amountOwedFloat.Float64,
+				"claimed_items": claimedItems,
+				"tax_share":     taxShare,
+				"tip_share":     tipShare,
+				"is_settled":    m.IsSettled,
+				"joined_at":     m.JoinedAt.Time,
+			})
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"split_type": "receipt",
+			"tax":        taxFloat.Float64,
+			"tip":        tipFloat.Float64,
+			"tip_is_shared": split.TipIsShared,
+			"members":    response,
+		})
+	}
 }
 
 func MarkAsSettled(queries tabmate.Querier) gin.HandlerFunc {
@@ -251,6 +340,18 @@ func MarkAsSettled(queries tabmate.Querier) gin.HandlerFunc {
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Split not found"})
 			return
+		}
+
+		// Block settlement if any items are still unclaimed
+		if split.SplitType == "receipt" {
+			unclaimedCount, err := queries.CountUnclaimedSplitItems(c, split.ID)
+			if err == nil && unclaimedCount > 0 {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error":            "All items must be claimed before settling",
+					"unclaimed_items":  unclaimedCount,
+				})
+				return
+			}
 		}
 
 		_, err = queries.UpdateSplitMemberSettledStatus(c, tabmate.UpdateSplitMemberSettledStatusParams{

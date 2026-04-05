@@ -25,7 +25,7 @@ func (q *Queries) CountOpenSplits(ctx context.Context) (int64, error) {
 const createSplit = `-- name: CreateSplit :one
 INSERT INTO splits (created_by, split_code, name, description, total_amount, status)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, created_by, split_code, name, description, total_amount, status, created_at, updated_at, settled_at
+RETURNING id, created_by, split_code, name, description, total_amount, status, created_at, updated_at, settled_at, tax_amount, tip_amount, tip_is_shared, split_type
 `
 
 type CreateSplitParams struct {
@@ -58,6 +58,10 @@ func (q *Queries) CreateSplit(ctx context.Context, arg CreateSplitParams) (Split
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SettledAt,
+		&i.TaxAmount,
+		&i.TipAmount,
+		&i.TipIsShared,
+		&i.SplitType,
 	)
 	return i, err
 }
@@ -72,7 +76,7 @@ func (q *Queries) DeleteSplitByCode(ctx context.Context, splitCode string) error
 }
 
 const getSplitByCode = `-- name: GetSplitByCode :one
-SELECT id, created_by, split_code, name, description, total_amount, status, created_at, updated_at, settled_at FROM splits WHERE split_code = $1
+SELECT id, created_by, split_code, name, description, total_amount, status, created_at, updated_at, settled_at, tax_amount, tip_amount, tip_is_shared, split_type FROM splits WHERE split_code = $1
 `
 
 func (q *Queries) GetSplitByCode(ctx context.Context, splitCode string) (Splits, error) {
@@ -89,12 +93,16 @@ func (q *Queries) GetSplitByCode(ctx context.Context, splitCode string) (Splits,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SettledAt,
+		&i.TaxAmount,
+		&i.TipAmount,
+		&i.TipIsShared,
+		&i.SplitType,
 	)
 	return i, err
 }
 
 const getSplitByID = `-- name: GetSplitByID :one
-SELECT id, created_by, split_code, name, description, total_amount, status, created_at, updated_at, settled_at FROM splits WHERE id = $1
+SELECT id, created_by, split_code, name, description, total_amount, status, created_at, updated_at, settled_at, tax_amount, tip_amount, tip_is_shared, split_type FROM splits WHERE id = $1
 `
 
 func (q *Queries) GetSplitByID(ctx context.Context, id pgtype.UUID) (Splits, error) {
@@ -111,12 +119,16 @@ func (q *Queries) GetSplitByID(ctx context.Context, id pgtype.UUID) (Splits, err
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SettledAt,
+		&i.TaxAmount,
+		&i.TipAmount,
+		&i.TipIsShared,
+		&i.SplitType,
 	)
 	return i, err
 }
 
 const listSplitsByUserID = `-- name: ListSplitsByUserID :many
-SELECT id, created_by, split_code, name, description, total_amount, status, created_at, updated_at, settled_at FROM splits WHERE created_by = $1 ORDER BY created_at DESC
+SELECT id, created_by, split_code, name, description, total_amount, status, created_at, updated_at, settled_at, tax_amount, tip_amount, tip_is_shared, split_type FROM splits WHERE created_by = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListSplitsByUserID(ctx context.Context, createdBy pgtype.UUID) ([]Splits, error) {
@@ -139,6 +151,10 @@ func (q *Queries) ListSplitsByUserID(ctx context.Context, createdBy pgtype.UUID)
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SettledAt,
+			&i.TaxAmount,
+			&i.TipAmount,
+			&i.TipIsShared,
+			&i.SplitType,
 		); err != nil {
 			return nil, err
 		}
@@ -151,7 +167,7 @@ func (q *Queries) ListSplitsByUserID(ctx context.Context, createdBy pgtype.UUID)
 }
 
 const updateSplitAmount = `-- name: UpdateSplitAmount :one
-UPDATE splits SET total_amount = $2, updated_at = NOW() WHERE id = $1 RETURNING id, created_by, split_code, name, description, total_amount, status, created_at, updated_at, settled_at
+UPDATE splits SET total_amount = $2, updated_at = NOW() WHERE id = $1 RETURNING id, created_by, split_code, name, description, total_amount, status, created_at, updated_at, settled_at, tax_amount, tip_amount, tip_is_shared, split_type
 `
 
 type UpdateSplitAmountParams struct {
@@ -173,6 +189,10 @@ func (q *Queries) UpdateSplitAmount(ctx context.Context, arg UpdateSplitAmountPa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SettledAt,
+		&i.TaxAmount,
+		&i.TipAmount,
+		&i.TipIsShared,
+		&i.SplitType,
 	)
 	return i, err
 }
@@ -184,7 +204,7 @@ SET
     settled_at = CASE WHEN $2 = 'settled' THEN NOW() ELSE settled_at END,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, created_by, split_code, name, description, total_amount, status, created_at, updated_at, settled_at
+RETURNING id, created_by, split_code, name, description, total_amount, status, created_at, updated_at, settled_at, tax_amount, tip_amount, tip_is_shared, split_type
 `
 
 type UpdateSplitStatusParams struct {
@@ -206,6 +226,10 @@ func (q *Queries) UpdateSplitStatus(ctx context.Context, arg UpdateSplitStatusPa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SettledAt,
+		&i.TaxAmount,
+		&i.TipAmount,
+		&i.TipIsShared,
+		&i.SplitType,
 	)
 	return i, err
 }

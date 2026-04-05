@@ -64,6 +64,11 @@ WHERE split_id = $1 AND is_settled = FALSE;
 DELETE FROM split_members
 WHERE split_id = $1 AND user_id = $2;
 
+-- name: UpdateSplitMemberAmount :exec
+UPDATE split_members
+SET amount_owed = $3
+WHERE split_id = $1 AND user_id = $2;
+
 -- name: RecalculateSplitForAllMembers :exec
 -- When someone joins/leaves, recalculate everyone's amount_owed
 UPDATE split_members sm

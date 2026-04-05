@@ -22,6 +22,24 @@ type Items struct {
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
+type SplitItemClaims struct {
+	SplitItemID     pgtype.UUID        `json:"split_item_id"`
+	ClaimedByUserID pgtype.UUID        `json:"claimed_by_user_id"`
+	QuantityClaimed int32              `json:"quantity_claimed"`
+	ClaimedAt       pgtype.Timestamptz `json:"claimed_at"`
+}
+
+type SplitItems struct {
+	ID            pgtype.UUID        `json:"id"`
+	SplitID       pgtype.UUID        `json:"split_id"`
+	Name          string             `json:"name"`
+	Price         pgtype.Numeric     `json:"price"`
+	Quantity      int32              `json:"quantity"`
+	RemainingQty  int32              `json:"remaining_qty"`
+	AddedByUserID pgtype.UUID        `json:"added_by_user_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
 type SplitMembers struct {
 	SplitID    pgtype.UUID        `json:"split_id"`
 	UserID     pgtype.UUID        `json:"user_id"`
@@ -43,6 +61,10 @@ type Splits struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 	SettledAt   pgtype.Timestamptz `json:"settled_at"`
+	TaxAmount   pgtype.Numeric     `json:"tax_amount"`
+	TipAmount   pgtype.Numeric     `json:"tip_amount"`
+	TipIsShared bool               `json:"tip_is_shared"`
+	SplitType   string             `json:"split_type"`
 }
 
 type TableMembers struct {

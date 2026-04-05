@@ -15,6 +15,8 @@ type Querier interface {
 	AddItemToTable(ctx context.Context, arg AddItemToTableParams) (Items, error)
 	// Adds multiple items to the database.
 	AddMenuItemsToDB(ctx context.Context, arg AddMenuItemsToDBParams) error
+	AddSplitItem(ctx context.Context, arg AddSplitItemParams) (SplitItems, error)
+	AddSplitItemClaim(ctx context.Context, arg AddSplitItemClaimParams) (SplitItemClaims, error)
 	AddUserToSplit(ctx context.Context, arg AddUserToSplitParams) (SplitMembers, error)
 	// Adds a user to a table with an optional role, defaulting is_settled to false.
 	AddUserToTable(ctx context.Context, arg AddUserToTableParams) (TableMembers, error)
@@ -27,13 +29,17 @@ type Querier interface {
 	CountMembersInTable(ctx context.Context, tableID pgtype.UUID) (int64, error)
 	CountOpenSplits(ctx context.Context) (int64, error)
 	CountOpenTables(ctx context.Context) (int64, error)
+	CountUnclaimedSplitItems(ctx context.Context, splitID pgtype.UUID) (int64, error)
 	CountUnsettledSplitMembers(ctx context.Context, splitID pgtype.UUID) (int64, error)
 	CreateSplit(ctx context.Context, arg CreateSplitParams) (Splits, error)
 	CreateTable(ctx context.Context, arg CreateTableParams) (Tables, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (Users, error)
+	DeleteAllSplitItems(ctx context.Context, splitID pgtype.UUID) error
 	// Remove an item from a table
 	DeleteItemFromTable(ctx context.Context, id pgtype.UUID) error
 	DeleteSplitByCode(ctx context.Context, splitCode string) error
+	DeleteSplitItem(ctx context.Context, id pgtype.UUID) error
+	DeleteSplitItemClaim(ctx context.Context, arg DeleteSplitItemClaimParams) error
 	DeleteTableByCode(ctx context.Context, tableCode string) error
 	DeleteTableByID(ctx context.Context, id pgtype.UUID) error
 	DeleteUserByCognitoSub(ctx context.Context, cognitoSub string) error
@@ -48,6 +54,8 @@ type Querier interface {
 	GetMemberRoleInTable(ctx context.Context, arg GetMemberRoleInTableParams) (string, error)
 	GetSplitByCode(ctx context.Context, splitCode string) (Splits, error)
 	GetSplitByID(ctx context.Context, id pgtype.UUID) (Splits, error)
+	GetSplitItem(ctx context.Context, id pgtype.UUID) (SplitItems, error)
+	GetSplitItemClaim(ctx context.Context, arg GetSplitItemClaimParams) (SplitItemClaims, error)
 	GetSplitMember(ctx context.Context, arg GetSplitMemberParams) (SplitMembers, error)
 	GetTableByCode(ctx context.Context, tableCode string) (Tables, error)
 	GetTableByID(ctx context.Context, id pgtype.UUID) (Tables, error)
@@ -60,6 +68,8 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (Users, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (Users, error)
 	ListAllUsers(ctx context.Context) ([]Users, error)
+	ListClaimsForItem(ctx context.Context, splitItemID pgtype.UUID) ([]ListClaimsForItemRow, error)
+	ListClaimsForSplit(ctx context.Context, splitID pgtype.UUID) ([]ListClaimsForSplitRow, error)
 	// Retrieves all the items in a table.
 	ListItemsInTable(ctx context.Context, tableCode string) ([]Items, error)
 	// Retrieves all the items in a table with user details (username).
@@ -70,6 +80,7 @@ type Querier interface {
 	ListMembersWithUserDetailsByTableID(ctx context.Context, tableID pgtype.UUID) ([]ListMembersWithUserDetailsByTableIDRow, error)
 	// Retrieves all members of a table_id where is_settled is true.
 	ListSettledMembersInTable(ctx context.Context, tableID pgtype.UUID) ([]TableMembers, error)
+	ListSplitItems(ctx context.Context, splitID pgtype.UUID) ([]SplitItems, error)
 	ListSplitMembersBySplitID(ctx context.Context, splitID pgtype.UUID) ([]SplitMembers, error)
 	// Get all members of a split with their user info
 	ListSplitMembersWithUserDetails(ctx context.Context, splitID pgtype.UUID) ([]ListSplitMembersWithUserDetailsRow, error)
@@ -100,8 +111,12 @@ type Querier interface {
 	// Updates the role of a user within a specific table.
 	UpdateMemberRoleInTable(ctx context.Context, arg UpdateMemberRoleInTableParams) (TableMembers, error)
 	UpdateSplitAmount(ctx context.Context, arg UpdateSplitAmountParams) (Splits, error)
+	UpdateSplitItemRemainingQty(ctx context.Context, arg UpdateSplitItemRemainingQtyParams) (SplitItems, error)
+	UpdateSplitMemberAmount(ctx context.Context, arg UpdateSplitMemberAmountParams) error
 	UpdateSplitMemberSettledStatus(ctx context.Context, arg UpdateSplitMemberSettledStatusParams) (SplitMembers, error)
+	UpdateSplitReceiptDetails(ctx context.Context, arg UpdateSplitReceiptDetailsParams) (Splits, error)
 	UpdateSplitStatus(ctx context.Context, arg UpdateSplitStatusParams) (Splits, error)
+	UpdateSplitTotalAmount(ctx context.Context, arg UpdateSplitTotalAmountParams) (Splits, error)
 	UpdateTableMenuURL(ctx context.Context, arg UpdateTableMenuURLParams) (Tables, error)
 	UpdateTableName(ctx context.Context, arg UpdateTableNameParams) (Tables, error)
 	UpdateTableRestaurantName(ctx context.Context, arg UpdateTableRestaurantNameParams) (Tables, error)

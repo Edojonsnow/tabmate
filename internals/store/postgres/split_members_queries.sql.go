@@ -273,6 +273,23 @@ func (q *Queries) RemoveUserFromSplit(ctx context.Context, arg RemoveUserFromSpl
 	return err
 }
 
+const updateSplitMemberAmount = `-- name: UpdateSplitMemberAmount :exec
+UPDATE split_members
+SET amount_owed = $3
+WHERE split_id = $1 AND user_id = $2
+`
+
+type UpdateSplitMemberAmountParams struct {
+	SplitID    pgtype.UUID    `json:"split_id"`
+	UserID     pgtype.UUID    `json:"user_id"`
+	AmountOwed pgtype.Numeric `json:"amount_owed"`
+}
+
+func (q *Queries) UpdateSplitMemberAmount(ctx context.Context, arg UpdateSplitMemberAmountParams) error {
+	_, err := q.db.Exec(ctx, updateSplitMemberAmount, arg.SplitID, arg.UserID, arg.AmountOwed)
+	return err
+}
+
 const updateSplitMemberSettledStatus = `-- name: UpdateSplitMemberSettledStatus :one
 UPDATE split_members
 SET
