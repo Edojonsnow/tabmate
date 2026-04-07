@@ -75,6 +75,13 @@ type TableMembers struct {
 	IsSettled bool               `json:"is_settled"`
 }
 
+type TableSyncOperations struct {
+	OperationID string             `json:"operation_id"`
+	TableCode   string             `json:"table_code"`
+	UserID      pgtype.UUID        `json:"user_id"`
+	AppliedAt   pgtype.Timestamptz `json:"applied_at"`
+}
+
 type Tables struct {
 	ID             pgtype.UUID        `json:"id"`
 	CreatedBy      pgtype.UUID        `json:"created_by"`

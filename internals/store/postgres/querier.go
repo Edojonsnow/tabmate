@@ -99,6 +99,7 @@ type Querier interface {
 	MarkAllMembersInTableAsSettled(ctx context.Context, tableID pgtype.UUID) ([]TableMembers, error)
 	// When someone joins/leaves, recalculate everyone's amount_owed
 	RecalculateSplitForAllMembers(ctx context.Context, splitID pgtype.UUID) error
+	RegisterTableSyncOperation(ctx context.Context, arg RegisterTableSyncOperationParams) (int64, error)
 	RemoveUserFromSplit(ctx context.Context, arg RemoveUserFromSplitParams) error
 	// Removes a user from a specific table.
 	RemoveUserFromTable(ctx context.Context, arg RemoveUserFromTableParams) error

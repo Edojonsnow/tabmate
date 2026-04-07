@@ -43,11 +43,12 @@ type CreateTableReq struct {
 }
 
 type ItemDelta struct {
-	ItemName      string      `json:"itemName"`
-	Price         float64     `json:"price"`
-	QuantityDelta int         `json:"quantityDelta"`
-	Username      string      `json:"username"`
-	AddedByUserID pgtype.UUID `json:"addedByUserId"`
+	ClientOperationID string      `json:"clientOperationId"`
+	ItemName          string      `json:"itemName"`
+	Price             float64     `json:"price"`
+	QuantityDelta     int         `json:"quantityDelta"`
+	Username          string      `json:"username"`
+	AddedByUserID     pgtype.UUID `json:"addedByUserId"`
 }
 
 type BulkSyncRequest struct {
@@ -359,6 +360,16 @@ func AddMenuItemsToDB(queries tabmate.Querier) gin.HandlerFunc {
 func SyncTableItems(pool *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in context"})
+			return
+		}
+		pgUserID, ok := userID.(pgtype.UUID)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assert user ID type"})
+			return
+		}
 
 		tableCode := c.Param("code")
 		if tableCode == "" {
@@ -395,7 +406,26 @@ func SyncTableItems(pool *pgxpool.Pool) gin.HandlerFunc {
 			itemsMap[key] = it
 		}
 
+		appliedOperationIDs := make([]string, 0, len(req.Updates))
+		duplicateOperationIDs := make([]string, 0)
+
 		for _, upd := range req.Updates {
+			if upd.ClientOperationID != "" {
+				rowsAffected, err := q.RegisterTableSyncOperation(ctx, tabmate.RegisterTableSyncOperationParams{
+					OperationID: upd.ClientOperationID,
+					TableCode:   tableCode,
+					UserID:      pgUserID,
+				})
+				if err != nil {
+					c.JSON(500, gin.H{"error": "Failed to register sync operation"})
+					return
+				}
+				if rowsAffected == 0 {
+					duplicateOperationIDs = append(duplicateOperationIDs, upd.ClientOperationID)
+					continue
+				}
+			}
+
 			key := strings.ToLower(upd.ItemName) + ":" + upd.AddedByUserID.String()
 			existing, found := itemsMap[key]
 
@@ -410,7 +440,7 @@ func SyncTableItems(pool *pgxpool.Pool) gin.HandlerFunc {
 			if !found {
 				// New item, only add if delta > 0
 				if upd.QuantityDelta > 0 {
-					_, err := q.AddItemToTable(ctx, tabmate.AddItemToTableParams{
+					newItem, err := q.AddItemToTable(ctx, tabmate.AddItemToTableParams{
 						TableCode:          tableCode,
 						AddedByUserID:      upd.AddedByUserID,
 						Name:               upd.ItemName,
@@ -424,6 +454,15 @@ func SyncTableItems(pool *pgxpool.Pool) gin.HandlerFunc {
 						fmt.Print("Error adding item to table: ", err)
 						return
 					}
+					itemsMap[key] = tabmate.ListItemsWithUserDetailsInTableRow{
+						ID:            newItem.ID,
+						Name:          newItem.Name,
+						Quantity:      newItem.Quantity,
+						AddedByUserID: newItem.AddedByUserID,
+					}
+					if upd.ClientOperationID != "" {
+						appliedOperationIDs = append(appliedOperationIDs, upd.ClientOperationID)
+					}
 				}
 				continue
 			}
@@ -436,6 +475,7 @@ func SyncTableItems(pool *pgxpool.Pool) gin.HandlerFunc {
 					c.JSON(500, gin.H{"error": err.Error()})
 					return
 				}
+				delete(itemsMap, key)
 			} else {
 				// update
 				_, err := q.UpdateItemQuantity(ctx, tabmate.UpdateItemQuantityParams{
@@ -446,6 +486,12 @@ func SyncTableItems(pool *pgxpool.Pool) gin.HandlerFunc {
 					c.JSON(500, gin.H{"error": err.Error()})
 					return
 				}
+				existing.Quantity = newQty
+				itemsMap[key] = existing
+			}
+
+			if upd.ClientOperationID != "" {
+				appliedOperationIDs = append(appliedOperationIDs, upd.ClientOperationID)
 			}
 		}
 
@@ -454,7 +500,11 @@ func SyncTableItems(pool *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+		c.JSON(http.StatusOK, gin.H{
+			"status":                  "ok",
+			"applied_operation_ids":   appliedOperationIDs,
+			"duplicate_operation_ids": duplicateOperationIDs,
+		})
 
 	}
 }
@@ -604,8 +654,8 @@ func UpdateTableVat(queries tabmate.Querier) gin.HandlerFunc {
 		}
 
 		updatedTable, err := queries.UpdateTableVat(c, tabmate.UpdateTableVatParams{
-			TableCode:  tableCode,
-			Vat: req.Vat,
+			TableCode: tableCode,
+			Vat:       req.Vat,
 		})
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update table VAT"})
