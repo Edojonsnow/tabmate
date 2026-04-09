@@ -22,8 +22,7 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 	// Load HTML templates
 	router.LoadHTMLGlob("templates/*")
 
-	// Add logging middleware
-	router.Use(gin.Logger())
+	// Add custom logging middleware (gin.Default() already includes gin.Logger())
 	router.Use(func(c *gin.Context) {
 		log.Printf("Request: %s %s", c.Request.Method, c.Request.URL.Path)
 	})

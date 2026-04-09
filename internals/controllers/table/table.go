@@ -408,6 +408,7 @@ func SyncTableItems(pool *pgxpool.Pool) gin.HandlerFunc {
 
 		appliedOperationIDs := make([]string, 0, len(req.Updates))
 		duplicateOperationIDs := make([]string, 0)
+		ignoredOperationIDs := make([]string, 0)
 
 		for _, upd := range req.Updates {
 			if upd.ClientOperationID != "" {
@@ -464,6 +465,9 @@ func SyncTableItems(pool *pgxpool.Pool) gin.HandlerFunc {
 						appliedOperationIDs = append(appliedOperationIDs, upd.ClientOperationID)
 					}
 				}
+				if upd.QuantityDelta <= 0 && upd.ClientOperationID != "" {
+					ignoredOperationIDs = append(ignoredOperationIDs, upd.ClientOperationID)
+				}
 				continue
 			}
 
@@ -504,6 +508,7 @@ func SyncTableItems(pool *pgxpool.Pool) gin.HandlerFunc {
 			"status":                  "ok",
 			"applied_operation_ids":   appliedOperationIDs,
 			"duplicate_operation_ids": duplicateOperationIDs,
+			"ignored_operation_ids":   ignoredOperationIDs,
 		})
 
 	}
