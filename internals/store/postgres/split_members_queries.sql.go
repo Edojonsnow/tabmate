@@ -186,6 +186,7 @@ SELECT
     s.total_amount,
     s.status AS split_status,
     s.created_by AS split_creator,
+    s.settled_at,
     sm.role AS user_role_in_split,
     sm.amount_owed,
     sm.is_settled AS user_is_settled,
@@ -203,6 +204,7 @@ type ListSplitsForUserRow struct {
 	TotalAmount     pgtype.Numeric     `json:"total_amount"`
 	SplitStatus     string             `json:"split_status"`
 	SplitCreator    pgtype.UUID        `json:"split_creator"`
+	SettledAt       pgtype.Timestamptz `json:"settled_at"`
 	UserRoleInSplit string             `json:"user_role_in_split"`
 	AmountOwed      pgtype.Numeric     `json:"amount_owed"`
 	UserIsSettled   bool               `json:"user_is_settled"`
@@ -226,6 +228,7 @@ func (q *Queries) ListSplitsForUser(ctx context.Context, userID pgtype.UUID) ([]
 			&i.TotalAmount,
 			&i.SplitStatus,
 			&i.SplitCreator,
+			&i.SettledAt,
 			&i.UserRoleInSplit,
 			&i.AmountOwed,
 			&i.UserIsSettled,

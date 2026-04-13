@@ -571,6 +571,11 @@ func ListSplitsForUser(queries tabmate.Querier) gin.HandlerFunc {
 			totalAmountFloat, _ := s.TotalAmount.Float64Value()
 			amountOwedFloat, _ := s.AmountOwed.Float64Value()
 
+			var settledAt any
+			if s.SettledAt.Valid {
+				settledAt = s.SettledAt.Time
+			}
+
 			response = append(response, gin.H{
 				"id":           uuid.UUID(s.SplitID.Bytes).String(),
 				"code":         s.SplitCode,
@@ -581,6 +586,7 @@ func ListSplitsForUser(queries tabmate.Querier) gin.HandlerFunc {
 				"amount_owed":  amountOwedFloat.Float64,
 				"is_settled":   s.UserIsSettled,
 				"joined_at":    s.JoinedAt.Time,
+				"settled_at":   settledAt,
 			})
 		}
 

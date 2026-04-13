@@ -289,6 +289,7 @@ SELECT
     t.status AS table_status,
     t.vat,
     t.created_by as table_host,
+    t.closed_at,
     tm.role AS user_role_in_table,
     tm.is_settled AS user_is_settled_in_table,
     tm.joined_at,
@@ -303,6 +304,7 @@ GROUP BY
     t.name,
     t.restaurant_name,
     t.status,
+    t.closed_at,
     tm.role,
     tm.is_settled,
     tm.joined_at
@@ -317,6 +319,7 @@ type ListTablesWithMembershipStatusForUserRow struct {
 	TableStatus          string             `json:"table_status"`
 	Vat                  pgtype.Numeric     `json:"vat"`
 	TableHost            pgtype.UUID        `json:"table_host"`
+	ClosedAt             pgtype.Timestamptz `json:"closed_at"`
 	UserRoleInTable      string             `json:"user_role_in_table"`
 	UserIsSettledInTable bool               `json:"user_is_settled_in_table"`
 	JoinedAt             pgtype.Timestamptz `json:"joined_at"`
@@ -342,6 +345,7 @@ func (q *Queries) ListTablesWithMembershipStatusForUser(ctx context.Context, use
 			&i.TableStatus,
 			&i.Vat,
 			&i.TableHost,
+			&i.ClosedAt,
 			&i.UserRoleInTable,
 			&i.UserIsSettledInTable,
 			&i.JoinedAt,

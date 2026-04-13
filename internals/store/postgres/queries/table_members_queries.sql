@@ -116,6 +116,7 @@ SELECT
     t.status AS table_status,
     t.vat,
     t.created_by as table_host,
+    t.closed_at,
     tm.role AS user_role_in_table,
     tm.is_settled AS user_is_settled_in_table,
     tm.joined_at,
@@ -130,6 +131,7 @@ GROUP BY
     t.name,
     t.restaurant_name,
     t.status,
+    t.closed_at,
     tm.role,
     tm.is_settled,
     tm.joined_at

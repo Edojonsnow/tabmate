@@ -671,6 +671,42 @@ func UpdateTableVat(queries tabmate.Querier) gin.HandlerFunc {
 	}
 }
 
+func CloseTable(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tableCode := c.Param("code")
+		userID, _ := c.Get("user_id")
+		pgUserID := userID.(pgtype.UUID)
+
+		dbTable, err := queries.GetTableByCode(c, tableCode)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Table not found"})
+			return
+		}
+
+		// Only the host can close the table
+		if dbTable.CreatedBy != pgUserID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only the table host can close the table"})
+			return
+		}
+
+		if dbTable.Status == "closed" {
+			c.JSON(http.StatusOK, gin.H{"message": "Table already closed"})
+			return
+		}
+
+		_, err = queries.UpdateTableStatus(c, tabmate.UpdateTableStatusParams{
+			ID:     dbTable.ID,
+			Status: "closed",
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to close table"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Table closed successfully"})
+	}
+}
+
 func (t *Table) Run() {
 	for {
 		select {

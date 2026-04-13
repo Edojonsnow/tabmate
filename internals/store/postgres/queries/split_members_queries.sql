@@ -39,6 +39,7 @@ SELECT
     s.total_amount,
     s.status AS split_status,
     s.created_by AS split_creator,
+    s.settled_at,
     sm.role AS user_role_in_split,
     sm.amount_owed,
     sm.is_settled AS user_is_settled,
