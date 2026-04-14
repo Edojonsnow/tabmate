@@ -244,6 +244,50 @@ func (q *Queries) ListSplitsForUser(ctx context.Context, userID pgtype.UUID) ([]
 	return items, nil
 }
 
+const listUnsettledSplitMembersForReminder = `-- name: ListUnsettledSplitMembersForReminder :many
+SELECT
+    sm.user_id,
+    u.name AS user_name,
+    sm.amount_owed,
+    u.push_token
+FROM split_members sm
+JOIN users u ON sm.user_id = u.id
+WHERE sm.split_id = $1 AND sm.is_settled = FALSE AND sm.role = 'guest'
+`
+
+type ListUnsettledSplitMembersForReminderRow struct {
+	UserID     pgtype.UUID    `json:"user_id"`
+	UserName   pgtype.Text    `json:"user_name"`
+	AmountOwed pgtype.Numeric `json:"amount_owed"`
+	PushToken  pgtype.Text    `json:"push_token"`
+}
+
+// Returns unsettled guest members with their push tokens for sending reminders
+func (q *Queries) ListUnsettledSplitMembersForReminder(ctx context.Context, splitID pgtype.UUID) ([]ListUnsettledSplitMembersForReminderRow, error) {
+	rows, err := q.db.Query(ctx, listUnsettledSplitMembersForReminder, splitID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListUnsettledSplitMembersForReminderRow{}
+	for rows.Next() {
+		var i ListUnsettledSplitMembersForReminderRow
+		if err := rows.Scan(
+			&i.UserID,
+			&i.UserName,
+			&i.AmountOwed,
+			&i.PushToken,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const recalculateSplitForAllMembers = `-- name: RecalculateSplitForAllMembers :exec
 UPDATE split_members sm
 SET amount_owed = (

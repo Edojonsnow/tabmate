@@ -70,6 +70,17 @@ UPDATE split_members
 SET amount_owed = $3
 WHERE split_id = $1 AND user_id = $2;
 
+-- name: ListUnsettledSplitMembersForReminder :many
+-- Returns unsettled guest members with their push tokens for sending reminders
+SELECT
+    sm.user_id,
+    u.name AS user_name,
+    sm.amount_owed,
+    u.push_token
+FROM split_members sm
+JOIN users u ON sm.user_id = u.id
+WHERE sm.split_id = $1 AND sm.is_settled = FALSE AND sm.role = 'guest';
+
 -- name: RecalculateSplitForAllMembers :exec
 -- When someone joins/leaves, recalculate everyone's amount_owed
 UPDATE split_members sm

@@ -94,6 +94,8 @@ type Querier interface {
 	ListTablesWithMembershipStatusForUser(ctx context.Context, userID pgtype.UUID) ([]ListTablesWithMembershipStatusForUserRow, error)
 	// Retrieves all members of a table_id where is_settled is false.
 	ListUnsettledMembersInTable(ctx context.Context, tableID pgtype.UUID) ([]TableMembers, error)
+	// Returns unsettled guest members with their push tokens for sending reminders
+	ListUnsettledSplitMembersForReminder(ctx context.Context, splitID pgtype.UUID) ([]ListUnsettledSplitMembersForReminderRow, error)
 	// Sets is_settled to true for all members of a specific table.
 	// Returns all updated member rows.
 	MarkAllMembersInTableAsSettled(ctx context.Context, tableID pgtype.UUID) ([]TableMembers, error)
