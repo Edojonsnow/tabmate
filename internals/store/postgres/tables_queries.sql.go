@@ -37,7 +37,7 @@ func (q *Queries) CountOpenTables(ctx context.Context) (int64, error) {
 const createTable = `-- name: CreateTable :one
 INSERT INTO tables  ( created_by, table_code, name, restaurant_name, status, menu_url )
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu, menu_locked
+RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu
 `
 
 type CreateTableParams struct {
@@ -72,7 +72,6 @@ func (q *Queries) CreateTable(ctx context.Context, arg CreateTableParams) (Table
 		&i.UpdatedAt,
 		&i.ClosedAt,
 		&i.ScannedMenu,
-		&i.MenuLocked,
 	)
 	return i, err
 }
@@ -122,7 +121,7 @@ func (q *Queries) GetAllTableCodes(ctx context.Context) ([]string, error) {
 }
 
 const getTableByCode = `-- name: GetTableByCode :one
-SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu, menu_locked FROM tables
+SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu FROM tables
 WHERE table_code = $1
 `
 
@@ -142,13 +141,12 @@ func (q *Queries) GetTableByCode(ctx context.Context, tableCode string) (Tables,
 		&i.UpdatedAt,
 		&i.ClosedAt,
 		&i.ScannedMenu,
-		&i.MenuLocked,
 	)
 	return i, err
 }
 
 const getTableByID = `-- name: GetTableByID :one
-SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu, menu_locked FROM tables
+SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu FROM tables
 WHERE id = $1
 `
 
@@ -168,7 +166,6 @@ func (q *Queries) GetTableByID(ctx context.Context, id pgtype.UUID) (Tables, err
 		&i.UpdatedAt,
 		&i.ClosedAt,
 		&i.ScannedMenu,
-		&i.MenuLocked,
 	)
 	return i, err
 }
@@ -186,7 +183,7 @@ func (q *Queries) GetTableScannedMenu(ctx context.Context, tableCode string) (pg
 }
 
 const listTablesByStatus = `-- name: ListTablesByStatus :many
-SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu, menu_locked FROM tables
+SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu FROM tables
 WHERE status = $1
 ORDER BY created_at DESC
 `
@@ -213,7 +210,6 @@ func (q *Queries) ListTablesByStatus(ctx context.Context, status string) ([]Tabl
 			&i.UpdatedAt,
 			&i.ClosedAt,
 			&i.ScannedMenu,
-			&i.MenuLocked,
 		); err != nil {
 			return nil, err
 		}
@@ -226,7 +222,7 @@ func (q *Queries) ListTablesByStatus(ctx context.Context, status string) ([]Tabl
 }
 
 const listTablesByUserID = `-- name: ListTablesByUserID :many
-SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu, menu_locked FROM tables
+SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu FROM tables
 WHERE created_by = $1
 ORDER BY created_at DESC
 `
@@ -253,7 +249,6 @@ func (q *Queries) ListTablesByUserID(ctx context.Context, createdBy pgtype.UUID)
 			&i.UpdatedAt,
 			&i.ClosedAt,
 			&i.ScannedMenu,
-			&i.MenuLocked,
 		); err != nil {
 			return nil, err
 		}
@@ -266,7 +261,7 @@ func (q *Queries) ListTablesByUserID(ctx context.Context, createdBy pgtype.UUID)
 }
 
 const searchTablesByNameOrRestaurant = `-- name: SearchTablesByNameOrRestaurant :many
-SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu, menu_locked FROM tables
+SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu FROM tables
 WHERE
     (name ILIKE '%' || $1 || '%' OR restaurant_name ILIKE '%' || $1 || '%')
     AND status = 'open' 
@@ -295,7 +290,6 @@ func (q *Queries) SearchTablesByNameOrRestaurant(ctx context.Context, dollar_1 p
 			&i.UpdatedAt,
 			&i.ClosedAt,
 			&i.ScannedMenu,
-			&i.MenuLocked,
 		); err != nil {
 			return nil, err
 		}
@@ -311,7 +305,7 @@ const updateTableMenuURL = `-- name: UpdateTableMenuURL :one
 UPDATE tables
 SET menu_url = $2, updated_at = NOW()
 WHERE id = $1
-RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu, menu_locked
+RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu
 `
 
 type UpdateTableMenuURLParams struct {
@@ -335,7 +329,6 @@ func (q *Queries) UpdateTableMenuURL(ctx context.Context, arg UpdateTableMenuURL
 		&i.UpdatedAt,
 		&i.ClosedAt,
 		&i.ScannedMenu,
-		&i.MenuLocked,
 	)
 	return i, err
 }
@@ -344,7 +337,7 @@ const updateTableName = `-- name: UpdateTableName :one
 UPDATE tables
 SET name = $2, updated_at = NOW()
 WHERE id = $1
-RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu, menu_locked
+RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu
 `
 
 type UpdateTableNameParams struct {
@@ -368,7 +361,6 @@ func (q *Queries) UpdateTableName(ctx context.Context, arg UpdateTableNameParams
 		&i.UpdatedAt,
 		&i.ClosedAt,
 		&i.ScannedMenu,
-		&i.MenuLocked,
 	)
 	return i, err
 }
@@ -377,7 +369,7 @@ const updateTableRestaurantName = `-- name: UpdateTableRestaurantName :one
 UPDATE tables
 SET restaurant_name = $2, updated_at = NOW()
 WHERE id = $1
-RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu, menu_locked
+RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu
 `
 
 type UpdateTableRestaurantNameParams struct {
@@ -401,7 +393,6 @@ func (q *Queries) UpdateTableRestaurantName(ctx context.Context, arg UpdateTable
 		&i.UpdatedAt,
 		&i.ClosedAt,
 		&i.ScannedMenu,
-		&i.MenuLocked,
 	)
 	return i, err
 }
@@ -429,7 +420,7 @@ SET
     closed_at = CASE WHEN $2 IN ('closed', 'paid') THEN NOW() ELSE closed_at END, -- Set closed_at if status changes to closed/paid
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu, menu_locked
+RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu
 `
 
 type UpdateTableStatusParams struct {
@@ -453,7 +444,6 @@ func (q *Queries) UpdateTableStatus(ctx context.Context, arg UpdateTableStatusPa
 		&i.UpdatedAt,
 		&i.ClosedAt,
 		&i.ScannedMenu,
-		&i.MenuLocked,
 	)
 	return i, err
 }
@@ -462,7 +452,7 @@ const updateTableVat = `-- name: UpdateTableVat :one
 UPDATE tables
 SET vat = $2, updated_at = NOW()
 WHERE table_code = $1
-RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu, menu_locked
+RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu
 `
 
 type UpdateTableVatParams struct {
@@ -486,7 +476,6 @@ func (q *Queries) UpdateTableVat(ctx context.Context, arg UpdateTableVatParams) 
 		&i.UpdatedAt,
 		&i.ClosedAt,
 		&i.ScannedMenu,
-		&i.MenuLocked,
 	)
 	return i, err
 }

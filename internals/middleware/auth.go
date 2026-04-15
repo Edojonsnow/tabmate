@@ -42,11 +42,12 @@ func AuthMiddleware(queries tabmate.Querier) gin.HandlerFunc {
 				Email:      userInfo.Email,
 			})
 			if err != nil {
-				log.Printf("Error auto-creating user: %v", err)
+				log.Printf("[AuthMiddleware] CreateUser error for sub=%q email=%q: %v", userInfo.Sub, userInfo.Email, err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 				c.Abort()
 				return
 			}
+			log.Printf("[AuthMiddleware] auto-created user id=%v for sub=%q", user.ID, userInfo.Sub)
 		}
 
 		c.Set("username", userInfo.Name)

@@ -95,7 +95,6 @@ type Tables struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	ClosedAt       pgtype.Timestamptz `json:"closed_at"`
 	ScannedMenu    pgtype.Text        `json:"scanned_menu"`
-	MenuLocked     bool               `json:"menu_locked"`
 }
 
 type Users struct {
