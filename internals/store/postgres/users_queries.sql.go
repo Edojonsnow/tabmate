@@ -42,7 +42,7 @@ func (q *Queries) CheckIfEmailExists(ctx context.Context, email string) (bool, e
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (name, profile_picture_url, cognito_sub,  email)
 VALUES ($1, $2, $3, $4)
-RETURNING id, name, profile_picture_url, cognito_sub, email, created_at, updated_at, push_token
+RETURNING id, name, profile_picture_url, cognito_sub, email, created_at, updated_at, push_token, bank_name, account_name, account_number
 `
 
 type CreateUserParams struct {
@@ -69,6 +69,9 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (Users, 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PushToken,
+		&i.BankName,
+		&i.AccountName,
+		&i.AccountNumber,
 	)
 	return i, err
 }
@@ -94,7 +97,7 @@ func (q *Queries) DeleteUserByID(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getUserByCognitoSub = `-- name: GetUserByCognitoSub :one
-SELECT id, name, profile_picture_url, cognito_sub, email, created_at, updated_at, push_token FROM users
+SELECT id, name, profile_picture_url, cognito_sub, email, created_at, updated_at, push_token, bank_name, account_name, account_number FROM users
 WHERE cognito_sub = $1
 `
 
@@ -110,12 +113,15 @@ func (q *Queries) GetUserByCognitoSub(ctx context.Context, cognitoSub string) (U
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PushToken,
+		&i.BankName,
+		&i.AccountName,
+		&i.AccountNumber,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, name, profile_picture_url, cognito_sub, email, created_at, updated_at, push_token FROM users
+SELECT id, name, profile_picture_url, cognito_sub, email, created_at, updated_at, push_token, bank_name, account_name, account_number FROM users
 WHERE email = $1
 `
 
@@ -131,12 +137,15 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (Users, erro
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PushToken,
+		&i.BankName,
+		&i.AccountName,
+		&i.AccountNumber,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, name, profile_picture_url, cognito_sub, email, created_at, updated_at, push_token FROM users
+SELECT id, name, profile_picture_url, cognito_sub, email, created_at, updated_at, push_token, bank_name, account_name, account_number FROM users
 WHERE id = $1
 `
 
@@ -152,12 +161,15 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (Users, error
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PushToken,
+		&i.BankName,
+		&i.AccountName,
+		&i.AccountNumber,
 	)
 	return i, err
 }
 
 const listAllUsers = `-- name: ListAllUsers :many
-SELECT id, name, profile_picture_url, cognito_sub, email, created_at, updated_at, push_token FROM users
+SELECT id, name, profile_picture_url, cognito_sub, email, created_at, updated_at, push_token, bank_name, account_name, account_number FROM users
 `
 
 func (q *Queries) ListAllUsers(ctx context.Context) ([]Users, error) {
@@ -178,6 +190,9 @@ func (q *Queries) ListAllUsers(ctx context.Context) ([]Users, error) {
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.PushToken,
+			&i.BankName,
+			&i.AccountName,
+			&i.AccountNumber,
 		); err != nil {
 			return nil, err
 		}
@@ -241,7 +256,7 @@ SET
     updated_at = NOW()
 WHERE
     id = $1
-RETURNING id, name, profile_picture_url, cognito_sub, email, created_at, updated_at, push_token
+RETURNING id, name, profile_picture_url, cognito_sub, email, created_at, updated_at, push_token, bank_name, account_name, account_number
 `
 
 type UpdateUserEmailParams struct {
@@ -261,6 +276,9 @@ func (q *Queries) UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PushToken,
+		&i.BankName,
+		&i.AccountName,
+		&i.AccountNumber,
 	)
 	return i, err
 }
@@ -272,7 +290,7 @@ SET
     updated_at = NOW()
 WHERE
     id = $1
-RETURNING id, name, profile_picture_url, cognito_sub, email, created_at, updated_at, push_token
+RETURNING id, name, profile_picture_url, cognito_sub, email, created_at, updated_at, push_token, bank_name, account_name, account_number
 `
 
 type UpdateUserNameParams struct {
@@ -293,6 +311,9 @@ func (q *Queries) UpdateUserName(ctx context.Context, arg UpdateUserNameParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PushToken,
+		&i.BankName,
+		&i.AccountName,
+		&i.AccountNumber,
 	)
 	return i, err
 }
@@ -304,7 +325,7 @@ SET
     updated_at = NOW()
 WHERE
     id = $1
-RETURNING id, name, profile_picture_url, cognito_sub, email, created_at, updated_at, push_token
+RETURNING id, name, profile_picture_url, cognito_sub, email, created_at, updated_at, push_token, bank_name, account_name, account_number
 `
 
 type UpdateUserProfilePictureURLParams struct {
@@ -324,6 +345,9 @@ func (q *Queries) UpdateUserProfilePictureURL(ctx context.Context, arg UpdateUse
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PushToken,
+		&i.BankName,
+		&i.AccountName,
+		&i.AccountNumber,
 	)
 	return i, err
 }
@@ -341,5 +365,23 @@ type UpdateUserPushTokenParams struct {
 
 func (q *Queries) UpdateUserPushToken(ctx context.Context, arg UpdateUserPushTokenParams) error {
 	_, err := q.db.Exec(ctx, updateUserPushToken, arg.PushToken, arg.ID)
+	return err
+}
+
+const updateBankDetails = `-- name: UpdateBankDetails :exec
+UPDATE users
+SET bank_name = $1, account_name = $2, account_number = $3, updated_at = NOW()
+WHERE id = $4
+`
+
+type UpdateBankDetailsParams struct {
+	BankName      pgtype.Text `json:"bank_name"`
+	AccountName   pgtype.Text `json:"account_name"`
+	AccountNumber pgtype.Text `json:"account_number"`
+	ID            pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateBankDetails(ctx context.Context, arg UpdateBankDetailsParams) error {
+	_, err := q.db.Exec(ctx, updateBankDetails, arg.BankName, arg.AccountName, arg.AccountNumber, arg.ID)
 	return err
 }

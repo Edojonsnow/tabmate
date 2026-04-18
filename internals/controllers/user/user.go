@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"log"
 	"net/http"
 	"strings"
 	tabmate "tabmate/internals/store/postgres"
@@ -125,14 +126,50 @@ func GetUser(queries tabmate.Querier) gin.HandlerFunc {
 
 		user, err := queries.GetUserByID(c, pgUserID)
 		if err != nil {
+			log.Printf("[GetUser] GetUserByID error: %v", err)
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"id":    uuid.UUID(user.ID.Bytes).String(),
-			"name":  user.Name.String,
-			"email": user.Email,
+			"id":             uuid.UUID(user.ID.Bytes).String(),
+			"name":           user.Name.String,
+			"email":          user.Email,
+			"bank_name":      user.BankName.String,
+			"account_name":   user.AccountName.String,
+			"account_number": user.AccountNumber.String,
 		})
+	}
+}
+
+type UpdateBankDetailsRequest struct {
+	BankName      string `json:"bank_name" binding:"required"`
+	AccountName   string `json:"account_name" binding:"required"`
+	AccountNumber string `json:"account_number" binding:"required"`
+}
+
+func UpdateBankDetails(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		pgUserID := userID.(pgtype.UUID)
+
+		var req UpdateBankDetailsRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "bank_name, account_name and account_number are required"})
+			return
+		}
+
+		err := queries.UpdateBankDetails(c, tabmate.UpdateBankDetailsParams{
+			BankName:      pgtype.Text{String: req.BankName, Valid: true},
+			AccountName:   pgtype.Text{String: req.AccountName, Valid: true},
+			AccountNumber: pgtype.Text{String: req.AccountNumber, Valid: true},
+			ID:            pgUserID,
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update bank details"})
+			return
+		}
+
+		c.Status(http.StatusNoContent)
 	}
 }

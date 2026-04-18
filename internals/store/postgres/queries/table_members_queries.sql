@@ -99,7 +99,10 @@ SELECT
     tm.is_settled,
     u.email AS user_email,
     u.name AS user_name,
-    u.profile_picture_url AS user_profile_picture_url
+    u.profile_picture_url AS user_profile_picture_url,
+    u.bank_name AS user_bank_name,
+    u.account_name AS user_account_name,
+    u.account_number AS user_account_number
 FROM table_members tm
 JOIN users u ON tm.user_id = u.id
 WHERE tm.table_id = $1

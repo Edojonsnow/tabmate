@@ -106,4 +106,7 @@ type Users struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	PushToken         pgtype.Text        `json:"push_token"`
+	BankName          pgtype.Text        `json:"bank_name"`
+	AccountName       pgtype.Text        `json:"account_name"`
+	AccountNumber     pgtype.Text        `json:"account_number"`
 }

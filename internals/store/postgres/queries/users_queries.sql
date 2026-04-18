@@ -78,3 +78,8 @@ UPDATE users
 SET push_token = $1, updated_at = NOW()
 WHERE id = $2;
 
+-- name: UpdateBankDetails :exec
+UPDATE users
+SET bank_name = $1, account_name = $2, account_number = $3, updated_at = NOW()
+WHERE id = $4;
+
