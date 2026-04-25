@@ -416,8 +416,8 @@ func (q *Queries) UpdateTableScannedMenu(ctx context.Context, arg UpdateTableSca
 const updateTableStatus = `-- name: UpdateTableStatus :one
 UPDATE tables
 SET
-    status = $2,
-    closed_at = CASE WHEN $2 IN ('closed', 'paid') THEN NOW() ELSE closed_at END, -- Set closed_at if status changes to closed/paid
+    status = $2::text,
+    closed_at = CASE WHEN $2::text IN ('closed', 'paid') THEN NOW() ELSE closed_at END, -- Set closed_at if status changes to closed/paid
     updated_at = NOW()
 WHERE id = $1
 RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu

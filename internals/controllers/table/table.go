@@ -702,6 +702,7 @@ func CloseTable(queries tabmate.Querier) gin.HandlerFunc {
 			Status: "closed",
 		})
 		if err != nil {
+			log.Print("Error updating table status: ", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to close table"})
 			return
 		}
