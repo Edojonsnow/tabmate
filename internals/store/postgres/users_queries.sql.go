@@ -249,6 +249,29 @@ func (q *Queries) SearchUsersByName(ctx context.Context, arg SearchUsersByNamePa
 	return items, nil
 }
 
+const updateBankDetails = `-- name: UpdateBankDetails :exec
+UPDATE users
+SET bank_name = $1, account_name = $2, account_number = $3, updated_at = NOW()
+WHERE id = $4
+`
+
+type UpdateBankDetailsParams struct {
+	BankName      pgtype.Text `json:"bank_name"`
+	AccountName   pgtype.Text `json:"account_name"`
+	AccountNumber pgtype.Text `json:"account_number"`
+	ID            pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateBankDetails(ctx context.Context, arg UpdateBankDetailsParams) error {
+	_, err := q.db.Exec(ctx, updateBankDetails,
+		arg.BankName,
+		arg.AccountName,
+		arg.AccountNumber,
+		arg.ID,
+	)
+	return err
+}
+
 const updateUserEmail = `-- name: UpdateUserEmail :one
 UPDATE users
 SET
@@ -365,23 +388,5 @@ type UpdateUserPushTokenParams struct {
 
 func (q *Queries) UpdateUserPushToken(ctx context.Context, arg UpdateUserPushTokenParams) error {
 	_, err := q.db.Exec(ctx, updateUserPushToken, arg.PushToken, arg.ID)
-	return err
-}
-
-const updateBankDetails = `-- name: UpdateBankDetails :exec
-UPDATE users
-SET bank_name = $1, account_name = $2, account_number = $3, updated_at = NOW()
-WHERE id = $4
-`
-
-type UpdateBankDetailsParams struct {
-	BankName      pgtype.Text `json:"bank_name"`
-	AccountName   pgtype.Text `json:"account_name"`
-	AccountNumber pgtype.Text `json:"account_number"`
-	ID            pgtype.UUID `json:"id"`
-}
-
-func (q *Queries) UpdateBankDetails(ctx context.Context, arg UpdateBankDetailsParams) error {
-	_, err := q.db.Exec(ctx, updateBankDetails, arg.BankName, arg.AccountName, arg.AccountNumber, arg.ID)
 	return err
 }
