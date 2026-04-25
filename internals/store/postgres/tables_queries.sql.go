@@ -182,6 +182,44 @@ func (q *Queries) GetTableScannedMenu(ctx context.Context, tableCode string) (pg
 	return scanned_menu, err
 }
 
+const listTableGuestsForReminder = `-- name: ListTableGuestsForReminder :many
+SELECT
+    tm.user_id,
+    u.name AS user_name,
+    u.push_token
+FROM table_members tm
+JOIN users u ON tm.user_id = u.id
+JOIN tables t ON tm.table_id = t.id
+WHERE t.table_code = $1 AND tm.role = 'guest'
+`
+
+type ListTableGuestsForReminderRow struct {
+	UserID    pgtype.UUID `json:"user_id"`
+	UserName  pgtype.Text `json:"user_name"`
+	PushToken pgtype.Text `json:"push_token"`
+}
+
+// Returns guest members of a table with their push tokens for payment reminders
+func (q *Queries) ListTableGuestsForReminder(ctx context.Context, tableCode string) ([]ListTableGuestsForReminderRow, error) {
+	rows, err := q.db.Query(ctx, listTableGuestsForReminder, tableCode)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListTableGuestsForReminderRow{}
+	for rows.Next() {
+		var i ListTableGuestsForReminderRow
+		if err := rows.Scan(&i.UserID, &i.UserName, &i.PushToken); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTablesByStatus = `-- name: ListTablesByStatus :many
 SELECT id, created_by, table_code, name, restaurant_name, status, menu_url, vat, created_at, updated_at, closed_at, scanned_menu FROM tables
 WHERE status = $1
@@ -424,12 +462,12 @@ RETURNING id, created_by, table_code, name, restaurant_name, status, menu_url, v
 `
 
 type UpdateTableStatusParams struct {
-	ID     pgtype.UUID `json:"id"`
-	Status string      `json:"status"`
+	ID      pgtype.UUID `json:"id"`
+	Column2 string      `json:"column_2"`
 }
 
 func (q *Queries) UpdateTableStatus(ctx context.Context, arg UpdateTableStatusParams) (Tables, error) {
-	row := q.db.QueryRow(ctx, updateTableStatus, arg.ID, arg.Status)
+	row := q.db.QueryRow(ctx, updateTableStatus, arg.ID, arg.Column2)
 	var i Tables
 	err := row.Scan(
 		&i.ID,

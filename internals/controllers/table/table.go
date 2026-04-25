@@ -698,8 +698,8 @@ func CloseTable(queries tabmate.Querier) gin.HandlerFunc {
 		}
 
 		_, err = queries.UpdateTableStatus(c, tabmate.UpdateTableStatusParams{
-			ID:     dbTable.ID,
-			Status: "closed",
+			ID:      dbTable.ID,
+			Column2: "closed",
 		})
 		if err != nil {
 			log.Print("Error updating table status: ", err)

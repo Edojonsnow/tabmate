@@ -87,6 +87,8 @@ type Querier interface {
 	ListSplitsByUserID(ctx context.Context, createdBy pgtype.UUID) ([]Splits, error)
 	// Get all splits a user is a member of
 	ListSplitsForUser(ctx context.Context, userID pgtype.UUID) ([]ListSplitsForUserRow, error)
+	// Returns guest members of a table with their push tokens for payment reminders
+	ListTableGuestsForReminder(ctx context.Context, tableCode string) ([]ListTableGuestsForReminderRow, error)
 	ListTablesByStatus(ctx context.Context, status string) ([]Tables, error)
 	ListTablesByUserID(ctx context.Context, createdBy pgtype.UUID) ([]Tables, error)
 	// For a specific user, list all tables they are a member of,

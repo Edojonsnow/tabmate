@@ -91,3 +91,14 @@ WHERE table_code = $1;
 -- name: GetTableScannedMenu :one
 SELECT scanned_menu FROM tables
 WHERE table_code = $1;
+
+-- name: ListTableGuestsForReminder :many
+-- Returns guest members of a table with their push tokens for payment reminders
+SELECT
+    tm.user_id,
+    u.name AS user_name,
+    u.push_token
+FROM table_members tm
+JOIN users u ON tm.user_id = u.id
+JOIN tables t ON tm.table_id = t.id
+WHERE t.table_code = $1 AND tm.role = 'guest';

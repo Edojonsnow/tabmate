@@ -69,6 +69,7 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 		authorized.POST("/api/tables/:code/sync", tablecontroller.SyncTableItems(pool))
 		authorized.PATCH("/api/tables/:code", tablecontroller.UpdateTableVat(queries))
 		authorized.PATCH("/api/tables/:code/close", tablecontroller.CloseTable(queries))
+		authorized.POST("/api/tables/:code/payment-reminder", tablecontroller.SendTablePaymentReminder(queries))
 		authorized.POST("/api/tables/:code/scan-menu", menucontroller.ScanMenu(queries))
 		authorized.POST("/api/tables/:code/extract-menu-url", menucontroller.ExtractMenuFromURL(queries))
 		authorized.GET("/api/tables/:code/menu", menucontroller.GetScannedMenu(queries))
