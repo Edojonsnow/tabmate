@@ -155,11 +155,26 @@ func ExtractMenuFromURL(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tableCode := c.Param("code")
 
+		const maxExtracts = 5
+
 		var body struct {
 			URL string `json:"url"`
 		}
 		if err := c.ShouldBindJSON(&body); err != nil || body.URL == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "url is required"})
+			return
+		}
+
+		// Check current count before hitting external APIs.
+		dbTable, err := queries.GetTableByCode(c.Request.Context(), tableCode)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "table not found"})
+			return
+		}
+		if dbTable.UrlExtractCount >= maxExtracts {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"error": "URL extraction limit reached for this table (max 5)",
+			})
 			return
 		}
 
@@ -182,7 +197,12 @@ func ExtractMenuFromURL(queries tabmate.Querier) gin.HandlerFunc {
 			}
 		}
 
-		c.JSON(http.StatusOK, gin.H{"items": items})
+		newCount, err := queries.IncrementURLExtractCount(c.Request.Context(), tableCode)
+		if err != nil {
+			log.Printf("Failed to increment url_extract_count for table %s: %v", tableCode, err)
+		}
+
+		c.JSON(http.StatusOK, gin.H{"items": items, "extracts_remaining": maxExtracts - newCount})
 	}
 }
 

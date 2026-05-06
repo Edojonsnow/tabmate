@@ -94,7 +94,8 @@ type Tables struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	ClosedAt       pgtype.Timestamptz `json:"closed_at"`
-	ScannedMenu    pgtype.Text        `json:"scanned_menu"`
+	ScannedMenu      pgtype.Text        `json:"scanned_menu"`
+	UrlExtractCount  int32              `json:"url_extract_count"`
 }
 
 type Users struct {

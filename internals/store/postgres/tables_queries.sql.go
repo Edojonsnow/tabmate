@@ -182,6 +182,20 @@ func (q *Queries) GetTableScannedMenu(ctx context.Context, tableCode string) (pg
 	return scanned_menu, err
 }
 
+const incrementURLExtractCount = `-- name: IncrementURLExtractCount :one
+UPDATE tables
+SET url_extract_count = url_extract_count + 1, updated_at = NOW()
+WHERE table_code = $1
+RETURNING url_extract_count
+`
+
+func (q *Queries) IncrementURLExtractCount(ctx context.Context, tableCode string) (int32, error) {
+	row := q.db.QueryRow(ctx, incrementURLExtractCount, tableCode)
+	var url_extract_count int32
+	err := row.Scan(&url_extract_count)
+	return url_extract_count, err
+}
+
 const listTableGuestsForReminder = `-- name: ListTableGuestsForReminder :many
 SELECT
     tm.user_id,

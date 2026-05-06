@@ -64,6 +64,7 @@ type Querier interface {
 	// Retrieves all membership details for a specific user across all tables.
 	GetTableMembershipDetailsForUser(ctx context.Context, userID pgtype.UUID) ([]TableMembers, error)
 	GetTableScannedMenu(ctx context.Context, tableCode string) (pgtype.Text, error)
+	IncrementURLExtractCount(ctx context.Context, tableCode string) (int32, error)
 	GetUserByCognitoSub(ctx context.Context, cognitoSub string) (Users, error)
 	GetUserByEmail(ctx context.Context, email string) (Users, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (Users, error)

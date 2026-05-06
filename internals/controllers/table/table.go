@@ -186,6 +186,7 @@ func JoinTable(queries tabmate.Querier) gin.HandlerFunc {
 		// Fetch Table from Database
 		dbTable, err := queries.GetTableByCode(c, code)
 		if err != nil {
+			log.Printf("Database error fetching table: %v", err)
 			c.JSON(http.StatusNotFound, gin.H{"error": "Table not found in database"})
 			return
 		}
@@ -193,6 +194,7 @@ func JoinTable(queries tabmate.Querier) gin.HandlerFunc {
 		// Check if user is already a member of the table
 		userExists, err := userIsMember(c, queries, dbTable.ID, pgUserID)
 		if err != nil {
+			log.Printf("Database error checking user membership: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 			return
 		}

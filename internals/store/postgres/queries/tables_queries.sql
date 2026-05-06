@@ -92,6 +92,12 @@ WHERE table_code = $1;
 SELECT scanned_menu FROM tables
 WHERE table_code = $1;
 
+-- name: IncrementURLExtractCount :one
+UPDATE tables
+SET url_extract_count = url_extract_count + 1, updated_at = NOW()
+WHERE table_code = $1
+RETURNING url_extract_count;
+
 -- name: ListTableGuestsForReminder :many
 -- Returns guest members of a table with their push tokens for payment reminders
 SELECT
