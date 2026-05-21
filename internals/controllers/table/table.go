@@ -2,11 +2,13 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
+	activity "tabmate/internals/controllers/activity"
 	tabmate "tabmate/internals/store/postgres"
 
 	"github.com/gin-gonic/gin"
@@ -208,6 +210,15 @@ func JoinTable(queries tabmate.Querier) gin.HandlerFunc {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add user"})
 				return
 			}
+			actorName, _ := c.Get("username")
+			activity.InsertEvent(c, queries, tabmate.InsertActivityEventParams{
+				EventType:  "member_joined",
+				ActorID:    pgUserID,
+				ActorName:  actorName.(string),
+				EntityType: "table",
+				EntityCode: code,
+				EntityName: dbTable.Name.String,
+			})
 		}
 
 		c.JSON(http.StatusOK, gin.H{
@@ -414,6 +425,7 @@ func SyncTableItems(pool *pgxpool.Pool) gin.HandlerFunc {
 		appliedOperationIDs := make([]string, 0, len(req.Updates))
 		duplicateOperationIDs := make([]string, 0)
 		ignoredOperationIDs := make([]string, 0)
+		pendingEvents := make([]tabmate.InsertActivityEventParams, 0)
 
 		for _, upd := range req.Updates {
 			if upd.ClientOperationID != "" {
@@ -469,6 +481,15 @@ func SyncTableItems(pool *pgxpool.Pool) gin.HandlerFunc {
 					if upd.ClientOperationID != "" {
 						appliedOperationIDs = append(appliedOperationIDs, upd.ClientOperationID)
 					}
+					meta, _ := json.Marshal(map[string]any{"item_name": upd.ItemName, "price": fmt.Sprintf("%.2f", upd.Price), "quantity": upd.QuantityDelta})
+					pendingEvents = append(pendingEvents, tabmate.InsertActivityEventParams{
+						EventType:  "item_added",
+						ActorID:    upd.AddedByUserID,
+						ActorName:  upd.Username,
+						EntityType: "table",
+						EntityCode: tableCode,
+						Metadata:   meta,
+					})
 				}
 				if upd.QuantityDelta <= 0 && upd.ClientOperationID != "" {
 					ignoredOperationIDs = append(ignoredOperationIDs, upd.ClientOperationID)
@@ -485,6 +506,15 @@ func SyncTableItems(pool *pgxpool.Pool) gin.HandlerFunc {
 					return
 				}
 				delete(itemsMap, key)
+				meta, _ := json.Marshal(map[string]any{"item_name": upd.ItemName})
+				pendingEvents = append(pendingEvents, tabmate.InsertActivityEventParams{
+					EventType:  "item_removed",
+					ActorID:    upd.AddedByUserID,
+					ActorName:  upd.Username,
+					EntityType: "table",
+					EntityCode: tableCode,
+					Metadata:   meta,
+				})
 			} else {
 				// update
 				_, err := q.UpdateItemQuantity(ctx, tabmate.UpdateItemQuantityParams{
@@ -507,6 +537,14 @@ func SyncTableItems(pool *pgxpool.Pool) gin.HandlerFunc {
 		if err := tx.Commit(ctx); err != nil {
 			c.JSON(500, gin.H{"error": "Failed to commit transaction"})
 			return
+		}
+
+		// Fire activity events after successful commit (best-effort).
+		if len(pendingEvents) > 0 {
+			evtQ := tabmate.New(pool)
+			for _, evt := range pendingEvents {
+				activity.InsertEvent(ctx, evtQ, evt)
+			}
 		}
 
 		c.JSON(http.StatusOK, gin.H{
@@ -708,6 +746,16 @@ func CloseTable(queries tabmate.Querier) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to close table"})
 			return
 		}
+
+		actorName, _ := c.Get("username")
+		activity.InsertEvent(c, queries, tabmate.InsertActivityEventParams{
+			EventType:  "table_closed",
+			ActorID:    pgUserID,
+			ActorName:  actorName.(string),
+			EntityType: "table",
+			EntityCode: tableCode,
+			EntityName: dbTable.Name.String,
+		})
 
 		c.JSON(http.StatusOK, gin.H{"message": "Table closed successfully"})
 	}

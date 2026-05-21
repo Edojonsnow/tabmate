@@ -64,10 +64,13 @@ type Querier interface {
 	// Retrieves all membership details for a specific user across all tables.
 	GetTableMembershipDetailsForUser(ctx context.Context, userID pgtype.UUID) ([]TableMembers, error)
 	GetTableScannedMenu(ctx context.Context, tableCode string) (pgtype.Text, error)
-	IncrementURLExtractCount(ctx context.Context, tableCode string) (int32, error)
 	GetUserByCognitoSub(ctx context.Context, cognitoSub string) (Users, error)
 	GetUserByEmail(ctx context.Context, email string) (Users, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (Users, error)
+	IncrementURLExtractCount(ctx context.Context, tableCode string) (int32, error)
+	InsertActivityEvent(ctx context.Context, arg InsertActivityEventParams) (ActivityEvents, error)
+	// Returns the 50 most recent events from all tables and splits the user belongs to.
+	ListActivityEventsForUser(ctx context.Context, userID pgtype.UUID) ([]ActivityEvents, error)
 	ListAllUsers(ctx context.Context) ([]Users, error)
 	ListClaimsForItem(ctx context.Context, splitItemID pgtype.UUID) ([]ListClaimsForItemRow, error)
 	ListClaimsForSplit(ctx context.Context, splitID pgtype.UUID) ([]ListClaimsForSplitRow, error)

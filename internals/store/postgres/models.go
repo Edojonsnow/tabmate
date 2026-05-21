@@ -8,6 +8,18 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type ActivityEvents struct {
+	ID         pgtype.UUID        `json:"id"`
+	EventType  string             `json:"event_type"`
+	ActorID    pgtype.UUID        `json:"actor_id"`
+	ActorName  string             `json:"actor_name"`
+	EntityType string             `json:"entity_type"`
+	EntityCode string             `json:"entity_code"`
+	EntityName string             `json:"entity_name"`
+	Metadata   []byte             `json:"metadata"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type Items struct {
 	ID                 pgtype.UUID        `json:"id"`
 	TableCode          string             `json:"table_code"`
@@ -83,19 +95,19 @@ type TableSyncOperations struct {
 }
 
 type Tables struct {
-	ID             pgtype.UUID        `json:"id"`
-	CreatedBy      pgtype.UUID        `json:"created_by"`
-	TableCode      string             `json:"table_code"`
-	Name           pgtype.Text        `json:"name"`
-	RestaurantName pgtype.Text        `json:"restaurant_name"`
-	Status         string             `json:"status"`
-	MenuUrl        pgtype.Text        `json:"menu_url"`
-	Vat            pgtype.Numeric     `json:"vat"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	ClosedAt       pgtype.Timestamptz `json:"closed_at"`
-	ScannedMenu      pgtype.Text        `json:"scanned_menu"`
-	UrlExtractCount  int32              `json:"url_extract_count"`
+	ID              pgtype.UUID        `json:"id"`
+	CreatedBy       pgtype.UUID        `json:"created_by"`
+	TableCode       string             `json:"table_code"`
+	Name            pgtype.Text        `json:"name"`
+	RestaurantName  pgtype.Text        `json:"restaurant_name"`
+	Status          string             `json:"status"`
+	MenuUrl         pgtype.Text        `json:"menu_url"`
+	Vat             pgtype.Numeric     `json:"vat"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	ClosedAt        pgtype.Timestamptz `json:"closed_at"`
+	ScannedMenu     pgtype.Text        `json:"scanned_menu"`
+	UrlExtractCount int32              `json:"url_extract_count"`
 }
 
 type Users struct {

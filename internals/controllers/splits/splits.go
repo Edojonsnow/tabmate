@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/big"
 	"net/http"
+	activity "tabmate/internals/controllers/activity"
 	"tabmate/internals/notifications"
 	tabmate "tabmate/internals/store/postgres"
 
@@ -136,6 +137,16 @@ func JoinSplit(queries tabmate.Querier) gin.HandlerFunc {
 
 		// Recalculate split for all members
 		queries.RecalculateSplitForAllMembers(c, split.ID)
+
+		actorName, _ := c.Get("username")
+		activity.InsertEvent(c, queries, tabmate.InsertActivityEventParams{
+			EventType:  "member_joined",
+			ActorID:    pgUserID,
+			ActorName:  actorName.(string),
+			EntityType: "split",
+			EntityCode: code,
+			EntityName: split.Name,
+		})
 
 		c.JSON(http.StatusOK, gin.H{
 			"message":       "Successfully joined split",
@@ -373,6 +384,16 @@ func MarkAsSettled(queries tabmate.Querier) gin.HandlerFunc {
 				Status: "settled",
 			})
 		}
+
+		actorName, _ := c.Get("username")
+		activity.InsertEvent(c, queries, tabmate.InsertActivityEventParams{
+			EventType:  "payment_confirmed",
+			ActorID:    pgUserID,
+			ActorName:  actorName.(string),
+			EntityType: "split",
+			EntityCode: code,
+			EntityName: split.Name,
+		})
 
 		c.JSON(http.StatusOK, gin.H{"message": "Marked as settled"})
 	}

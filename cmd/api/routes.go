@@ -3,11 +3,12 @@ package main
 import (
 	"log"
 	"net/http"
+	activitycontroller "tabmate/internals/controllers/activity"
 	authcontroller "tabmate/internals/controllers/auth"
+	menucontroller "tabmate/internals/controllers/menu"
+	splitcontroller "tabmate/internals/controllers/splits"
 	tablecontroller "tabmate/internals/controllers/table"
 	usercontroller "tabmate/internals/controllers/user"
-	splitcontroller "tabmate/internals/controllers/splits"
-	menucontroller "tabmate/internals/controllers/menu"
 	"tabmate/internals/middleware"
 	tabmate "tabmate/internals/store/postgres"
 
@@ -90,6 +91,9 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 		authorized.POST("/api/splits/:code/settle", splitcontroller.MarkAsSettled(queries))
 		authorized.POST("/api/splits/:code/remind", splitcontroller.RemindMembers(queries))
 		authorized.GET("/api/get-user-splits", splitcontroller.ListSplitsForUser(queries))
+
+		// ── Activity Feed ─────────────────────────────────────────────────────
+		authorized.GET("/api/activity", activitycontroller.GetActivityFeed(queries))
 		// Split items & claims
 		authorized.GET("/api/splits/:code/items", splitcontroller.GetSplitItems(queries))
 		authorized.PUT("/api/splits/:code/items", splitcontroller.ReplaceAllSplitItems(queries))
