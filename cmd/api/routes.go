@@ -88,6 +88,8 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 		authorized.DELETE("/api/splits/:code/leave", splitcontroller.LeaveSplit(queries))
 		authorized.DELETE("/api/splits/:code/members/:userId", splitcontroller.RemoveMemberFromSplit(queries))
 		authorized.GET("/api/splits/:code/breakdown", splitcontroller.GetSplitBreakdown(queries))
+		authorized.GET("/api/splits/:code/receipt", splitcontroller.GetSplitReceipt(queries))
+		authorized.POST("/api/splits/:code/receipt", splitcontroller.UpsertSplitReceipt(queries))
 		authorized.POST("/api/splits/:code/settle", splitcontroller.MarkAsSettled(queries))
 		authorized.POST("/api/splits/:code/remind", splitcontroller.RemindMembers(queries))
 		authorized.GET("/api/get-user-splits", splitcontroller.ListSplitsForUser(queries))

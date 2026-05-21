@@ -57,6 +57,7 @@ type Querier interface {
 	GetSplitItem(ctx context.Context, id pgtype.UUID) (SplitItems, error)
 	GetSplitItemClaim(ctx context.Context, arg GetSplitItemClaimParams) (SplitItemClaims, error)
 	GetSplitMember(ctx context.Context, arg GetSplitMemberParams) (SplitMembers, error)
+	GetSplitReceiptBySplitID(ctx context.Context, splitID pgtype.UUID) (SplitReceipts, error)
 	GetTableByCode(ctx context.Context, tableCode string) (Tables, error)
 	GetTableByID(ctx context.Context, id pgtype.UUID) (Tables, error)
 	// Retrieves a specific membership record by table_id and user_id.
@@ -125,6 +126,7 @@ type Querier interface {
 	UpdateSplitMemberAmount(ctx context.Context, arg UpdateSplitMemberAmountParams) error
 	UpdateSplitMemberSettledStatus(ctx context.Context, arg UpdateSplitMemberSettledStatusParams) (SplitMembers, error)
 	UpdateSplitReceiptDetails(ctx context.Context, arg UpdateSplitReceiptDetailsParams) (Splits, error)
+	UpsertSplitReceipt(ctx context.Context, arg UpsertSplitReceiptParams) (SplitReceipts, error)
 	UpdateSplitStatus(ctx context.Context, arg UpdateSplitStatusParams) (Splits, error)
 	UpdateSplitTotalAmount(ctx context.Context, arg UpdateSplitTotalAmountParams) (Splits, error)
 	UpdateTableMenuURL(ctx context.Context, arg UpdateTableMenuURLParams) (Tables, error)

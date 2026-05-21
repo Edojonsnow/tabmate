@@ -175,3 +175,17 @@ This project uses `pressly/goose` for database schema migrations. Migration file
   ```bash
   goose -dir "./migrations" create a_descriptive_name sql
   ```
+
+### Cloudflare R2 receipt storage
+
+Receipt images are uploaded to Cloudflare R2 through the S3-compatible API. Configure these environment variables:
+
+```env
+R2_ACCOUNT_ID=your_cloudflare_account_id
+R2_ACCESS_KEY_ID=your_r2_access_key_id
+R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
+R2_BUCKET=tabmate-receipts
+R2_PUBLIC_URL=https://receipts.example.com
+```
+
+`R2_PUBLIC_URL` should be the public bucket URL or custom domain used by mobile clients to display stored receipt images.
