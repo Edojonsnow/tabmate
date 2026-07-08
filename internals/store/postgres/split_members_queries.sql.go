@@ -14,7 +14,7 @@ import (
 const addUserToSplit = `-- name: AddUserToSplit :one
 INSERT INTO split_members (split_id, user_id, amount_owed, role)
 VALUES ($1, $2, $3, $4)
-RETURNING split_id, user_id, amount_owed, is_settled, settled_at, role, joined_at
+RETURNING split_id, user_id, amount_owed, is_settled, settled_at, role, joined_at, payment_status
 `
 
 type AddUserToSplitParams struct {
@@ -40,6 +40,35 @@ func (q *Queries) AddUserToSplit(ctx context.Context, arg AddUserToSplitParams) 
 		&i.SettledAt,
 		&i.Role,
 		&i.JoinedAt,
+		&i.PaymentStatus,
+	)
+	return i, err
+}
+
+const confirmSplitMemberPayment = `-- name: ConfirmSplitMemberPayment :one
+UPDATE split_members
+SET payment_status = 'confirmed', is_settled = TRUE, settled_at = NOW()
+WHERE split_id = $1 AND user_id = $2
+RETURNING split_id, user_id, amount_owed, is_settled, settled_at, role, joined_at, payment_status
+`
+
+type ConfirmSplitMemberPaymentParams struct {
+	SplitID pgtype.UUID `json:"split_id"`
+	UserID  pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) ConfirmSplitMemberPayment(ctx context.Context, arg ConfirmSplitMemberPaymentParams) (SplitMembers, error) {
+	row := q.db.QueryRow(ctx, confirmSplitMemberPayment, arg.SplitID, arg.UserID)
+	var i SplitMembers
+	err := row.Scan(
+		&i.SplitID,
+		&i.UserID,
+		&i.AmountOwed,
+		&i.IsSettled,
+		&i.SettledAt,
+		&i.Role,
+		&i.JoinedAt,
+		&i.PaymentStatus,
 	)
 	return i, err
 }
@@ -57,7 +86,7 @@ func (q *Queries) CountUnsettledSplitMembers(ctx context.Context, splitID pgtype
 }
 
 const getSplitMember = `-- name: GetSplitMember :one
-SELECT split_id, user_id, amount_owed, is_settled, settled_at, role, joined_at FROM split_members
+SELECT split_id, user_id, amount_owed, is_settled, settled_at, role, joined_at, payment_status FROM split_members
 WHERE split_id = $1 AND user_id = $2
 `
 
@@ -77,12 +106,13 @@ func (q *Queries) GetSplitMember(ctx context.Context, arg GetSplitMemberParams) 
 		&i.SettledAt,
 		&i.Role,
 		&i.JoinedAt,
+		&i.PaymentStatus,
 	)
 	return i, err
 }
 
 const listSplitMembersBySplitID = `-- name: ListSplitMembersBySplitID :many
-SELECT split_id, user_id, amount_owed, is_settled, settled_at, role, joined_at FROM split_members
+SELECT split_id, user_id, amount_owed, is_settled, settled_at, role, joined_at, payment_status FROM split_members
 WHERE split_id = $1
 ORDER BY joined_at ASC
 `
@@ -104,6 +134,7 @@ func (q *Queries) ListSplitMembersBySplitID(ctx context.Context, splitID pgtype.
 			&i.SettledAt,
 			&i.Role,
 			&i.JoinedAt,
+			&i.PaymentStatus,
 		); err != nil {
 			return nil, err
 		}
@@ -124,6 +155,7 @@ SELECT
     sm.settled_at,
     sm.role,
     sm.joined_at,
+    sm.payment_status,
     u.email AS user_email,
     u.name AS user_name,
     u.profile_picture_url AS user_profile_picture_url
@@ -141,6 +173,7 @@ type ListSplitMembersWithUserDetailsRow struct {
 	SettledAt             pgtype.Timestamptz `json:"settled_at"`
 	Role                  string             `json:"role"`
 	JoinedAt              pgtype.Timestamptz `json:"joined_at"`
+	PaymentStatus         string             `json:"payment_status"`
 	UserEmail             string             `json:"user_email"`
 	UserName              pgtype.Text        `json:"user_name"`
 	UserProfilePictureUrl pgtype.Text        `json:"user_profile_picture_url"`
@@ -164,6 +197,7 @@ func (q *Queries) ListSplitMembersWithUserDetails(ctx context.Context, splitID p
 			&i.SettledAt,
 			&i.Role,
 			&i.JoinedAt,
+			&i.PaymentStatus,
 			&i.UserEmail,
 			&i.UserName,
 			&i.UserProfilePictureUrl,
@@ -337,13 +371,42 @@ func (q *Queries) UpdateSplitMemberAmount(ctx context.Context, arg UpdateSplitMe
 	return err
 }
 
+const updateSplitMemberPaymentStatus = `-- name: UpdateSplitMemberPaymentStatus :one
+UPDATE split_members
+SET payment_status = $3
+WHERE split_id = $1 AND user_id = $2
+RETURNING split_id, user_id, amount_owed, is_settled, settled_at, role, joined_at, payment_status
+`
+
+type UpdateSplitMemberPaymentStatusParams struct {
+	SplitID       pgtype.UUID `json:"split_id"`
+	UserID        pgtype.UUID `json:"user_id"`
+	PaymentStatus string      `json:"payment_status"`
+}
+
+func (q *Queries) UpdateSplitMemberPaymentStatus(ctx context.Context, arg UpdateSplitMemberPaymentStatusParams) (SplitMembers, error) {
+	row := q.db.QueryRow(ctx, updateSplitMemberPaymentStatus, arg.SplitID, arg.UserID, arg.PaymentStatus)
+	var i SplitMembers
+	err := row.Scan(
+		&i.SplitID,
+		&i.UserID,
+		&i.AmountOwed,
+		&i.IsSettled,
+		&i.SettledAt,
+		&i.Role,
+		&i.JoinedAt,
+		&i.PaymentStatus,
+	)
+	return i, err
+}
+
 const updateSplitMemberSettledStatus = `-- name: UpdateSplitMemberSettledStatus :one
 UPDATE split_members
 SET
     is_settled = $3,
     settled_at = CASE WHEN $3 = TRUE THEN NOW() ELSE NULL END
 WHERE split_id = $1 AND user_id = $2
-RETURNING split_id, user_id, amount_owed, is_settled, settled_at, role, joined_at
+RETURNING split_id, user_id, amount_owed, is_settled, settled_at, role, joined_at, payment_status
 `
 
 type UpdateSplitMemberSettledStatusParams struct {
@@ -363,6 +426,7 @@ func (q *Queries) UpdateSplitMemberSettledStatus(ctx context.Context, arg Update
 		&i.SettledAt,
 		&i.Role,
 		&i.JoinedAt,
+		&i.PaymentStatus,
 	)
 	return i, err
 }

@@ -22,6 +22,7 @@ SELECT
     sm.settled_at,
     sm.role,
     sm.joined_at,
+    sm.payment_status,
     u.email AS user_email,
     u.name AS user_name,
     u.profile_picture_url AS user_profile_picture_url
@@ -80,6 +81,18 @@ SELECT
 FROM split_members sm
 JOIN users u ON sm.user_id = u.id
 WHERE sm.split_id = $1 AND sm.is_settled = FALSE AND sm.role = 'guest';
+
+-- name: UpdateSplitMemberPaymentStatus :one
+UPDATE split_members
+SET payment_status = $3
+WHERE split_id = $1 AND user_id = $2
+RETURNING *;
+
+-- name: ConfirmSplitMemberPayment :one
+UPDATE split_members
+SET payment_status = 'confirmed', is_settled = TRUE, settled_at = NOW()
+WHERE split_id = $1 AND user_id = $2
+RETURNING *;
 
 -- name: RecalculateSplitForAllMembers :exec
 -- When someone joins/leaves, recalculate everyone's amount_owed

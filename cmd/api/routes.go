@@ -91,6 +91,9 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 		authorized.GET("/api/splits/:code/receipt", splitcontroller.GetSplitReceipt(queries))
 		authorized.POST("/api/splits/:code/receipt", splitcontroller.UpsertSplitReceipt(queries))
 		authorized.POST("/api/splits/:code/settle", splitcontroller.MarkAsSettled(queries))
+		authorized.POST("/api/splits/:code/mark-payment-sent", splitcontroller.MarkPaymentSent(queries))
+		authorized.POST("/api/splits/:code/members/:userId/confirm-payment", splitcontroller.ConfirmPayment(queries))
+		authorized.PATCH("/api/splits/:code/payment-instructions", splitcontroller.UpdatePaymentInstructions(queries))
 		authorized.POST("/api/splits/:code/remind", splitcontroller.RemindMembers(queries))
 		authorized.GET("/api/get-user-splits", splitcontroller.ListSplitsForUser(queries))
 

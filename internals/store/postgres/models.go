@@ -53,30 +53,44 @@ type SplitItems struct {
 }
 
 type SplitMembers struct {
-	SplitID    pgtype.UUID        `json:"split_id"`
-	UserID     pgtype.UUID        `json:"user_id"`
-	AmountOwed pgtype.Numeric     `json:"amount_owed"`
-	IsSettled  bool               `json:"is_settled"`
-	SettledAt  pgtype.Timestamptz `json:"settled_at"`
-	Role       string             `json:"role"`
-	JoinedAt   pgtype.Timestamptz `json:"joined_at"`
+	SplitID       pgtype.UUID        `json:"split_id"`
+	UserID        pgtype.UUID        `json:"user_id"`
+	AmountOwed    pgtype.Numeric     `json:"amount_owed"`
+	IsSettled     bool               `json:"is_settled"`
+	SettledAt     pgtype.Timestamptz `json:"settled_at"`
+	Role          string             `json:"role"`
+	JoinedAt      pgtype.Timestamptz `json:"joined_at"`
+	PaymentStatus string             `json:"payment_status"`
+}
+
+type SplitReceipts struct {
+	ID               pgtype.UUID        `json:"id"`
+	SplitID          pgtype.UUID        `json:"split_id"`
+	ObjectKey        string             `json:"object_key"`
+	ImageUrl         string             `json:"image_url"`
+	MediaType        string             `json:"media_type"`
+	OriginalFilename pgtype.Text        `json:"original_filename"`
+	CreatedBy        pgtype.UUID        `json:"created_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Splits struct {
-	ID          pgtype.UUID        `json:"id"`
-	CreatedBy   pgtype.UUID        `json:"created_by"`
-	SplitCode   string             `json:"split_code"`
-	Name        string             `json:"name"`
-	Description pgtype.Text        `json:"description"`
-	TotalAmount pgtype.Numeric     `json:"total_amount"`
-	Status      string             `json:"status"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	SettledAt   pgtype.Timestamptz `json:"settled_at"`
-	TaxAmount   pgtype.Numeric     `json:"tax_amount"`
-	TipAmount   pgtype.Numeric     `json:"tip_amount"`
-	TipIsShared bool               `json:"tip_is_shared"`
-	SplitType   string             `json:"split_type"`
+	ID                  pgtype.UUID        `json:"id"`
+	CreatedBy           pgtype.UUID        `json:"created_by"`
+	SplitCode           string             `json:"split_code"`
+	Name                string             `json:"name"`
+	Description         pgtype.Text        `json:"description"`
+	TotalAmount         pgtype.Numeric     `json:"total_amount"`
+	Status              string             `json:"status"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	SettledAt           pgtype.Timestamptz `json:"settled_at"`
+	TaxAmount           pgtype.Numeric     `json:"tax_amount"`
+	TipAmount           pgtype.Numeric     `json:"tip_amount"`
+	TipIsShared         bool               `json:"tip_is_shared"`
+	SplitType           string             `json:"split_type"`
+	PaymentInstructions pgtype.Text        `json:"payment_instructions"`
 }
 
 type TableMembers struct {

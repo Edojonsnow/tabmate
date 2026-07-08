@@ -171,18 +171,24 @@ func GetSplitByCode(queries tabmate.Querier) gin.HandlerFunc {
 		taxAmountFloat, _ := split.TaxAmount.Float64Value()
 		tipAmountFloat, _ := split.TipAmount.Float64Value()
 
+		var paymentInstructions any
+		if split.PaymentInstructions.Valid {
+			paymentInstructions = split.PaymentInstructions.String
+		}
+
 		response := gin.H{
-			"id":           uuid.UUID(split.ID.Bytes).String(),
-			"code":         split.SplitCode,
-			"name":         split.Name,
-			"description":  split.Description.String,
-			"total_amount": totalAmountFloat.Float64,
-			"status":       split.Status,
-			"split_type":   split.SplitType,
-			"tax_amount":   taxAmountFloat.Float64,
-			"tip_amount":   tipAmountFloat.Float64,
-			"tip_is_shared": split.TipIsShared,
-			"created_at":   split.CreatedAt.Time,
+			"id":                   uuid.UUID(split.ID.Bytes).String(),
+			"code":                 split.SplitCode,
+			"name":                 split.Name,
+			"description":          split.Description.String,
+			"total_amount":         totalAmountFloat.Float64,
+			"status":               split.Status,
+			"split_type":           split.SplitType,
+			"tax_amount":           taxAmountFloat.Float64,
+			"tip_amount":           tipAmountFloat.Float64,
+			"tip_is_shared":        split.TipIsShared,
+			"payment_instructions": paymentInstructions,
+			"created_at":           split.CreatedAt.Time,
 		}
 
 		c.JSON(http.StatusOK, response)
@@ -210,13 +216,14 @@ func GetSplitMembers(queries tabmate.Querier) gin.HandlerFunc {
 			amountOwedFloat, _ := m.AmountOwed.Float64Value()
 
 			response = append(response, gin.H{
-				"user_id":     uuid.UUID(m.UserID.Bytes).String(),
-				"name":        m.UserName.String,
-				"email":       m.UserEmail,
-				"role":        m.Role,
-				"amount_owed": amountOwedFloat.Float64,
-				"is_settled":  m.IsSettled,
-				"joined_at":   m.JoinedAt.Time,
+				"user_id":        uuid.UUID(m.UserID.Bytes).String(),
+				"name":           m.UserName.String,
+				"email":          m.UserEmail,
+				"role":           m.Role,
+				"amount_owed":    amountOwedFloat.Float64,
+				"is_settled":     m.IsSettled,
+				"payment_status": m.PaymentStatus,
+				"joined_at":      m.JoinedAt.Time,
 			})
 		}
 
@@ -275,13 +282,14 @@ func GetSplitBreakdown(queries tabmate.Querier) gin.HandlerFunc {
 			for _, m := range members {
 				amountOwedFloat, _ := m.AmountOwed.Float64Value()
 				response = append(response, gin.H{
-					"user_id":     uuid.UUID(m.UserID.Bytes).String(),
-					"name":        m.UserName.String,
-					"email":       m.UserEmail,
-					"role":        m.Role,
-					"amount_owed": amountOwedFloat.Float64,
-					"is_settled":  m.IsSettled,
-					"joined_at":   m.JoinedAt.Time,
+					"user_id":        uuid.UUID(m.UserID.Bytes).String(),
+					"name":           m.UserName.String,
+					"email":          m.UserEmail,
+					"role":           m.Role,
+					"amount_owed":    amountOwedFloat.Float64,
+					"is_settled":     m.IsSettled,
+					"payment_status": m.PaymentStatus,
+					"joined_at":      m.JoinedAt.Time,
 				})
 			}
 			c.JSON(http.StatusOK, gin.H{"split_type": "simple", "members": response})
@@ -317,16 +325,17 @@ func GetSplitBreakdown(queries tabmate.Querier) gin.HandlerFunc {
 			claimedItems := claimedByUser[m.UserID.Bytes]
 
 			response = append(response, gin.H{
-				"user_id":       uuid.UUID(m.UserID.Bytes).String(),
-				"name":          m.UserName.String,
-				"email":         m.UserEmail,
-				"role":          m.Role,
-				"amount_owed":   amountOwedFloat.Float64,
-				"claimed_items": claimedItems,
-				"tax_share":     taxShare,
-				"tip_share":     tipShare,
-				"is_settled":    m.IsSettled,
-				"joined_at":     m.JoinedAt.Time,
+				"user_id":        uuid.UUID(m.UserID.Bytes).String(),
+				"name":           m.UserName.String,
+				"email":          m.UserEmail,
+				"role":           m.Role,
+				"amount_owed":    amountOwedFloat.Float64,
+				"claimed_items":  claimedItems,
+				"tax_share":      taxShare,
+				"tip_share":      tipShare,
+				"is_settled":     m.IsSettled,
+				"payment_status": m.PaymentStatus,
+				"joined_at":      m.JoinedAt.Time,
 			})
 		}
 
@@ -573,6 +582,160 @@ func RemoveMemberFromSplit(queries tabmate.Querier) gin.HandlerFunc {
 			"members_count":     len(members),
 			"amount_per_person": totalAmountFloat.Float64 / float64(len(members)),
 		})
+	}
+}
+
+func MarkPaymentSent(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		code := c.Param("code")
+		userID, _ := c.Get("user_id")
+		pgUserID := userID.(pgtype.UUID)
+
+		split, err := queries.GetSplitByCode(c, code)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Split not found"})
+			return
+		}
+
+		member, err := queries.GetSplitMember(c, tabmate.GetSplitMemberParams{
+			SplitID: split.ID,
+			UserID:  pgUserID,
+		})
+		if err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You are not a member of this split"})
+			return
+		}
+
+		if member.PaymentStatus == "confirmed" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Payment already confirmed"})
+			return
+		}
+
+		_, err = queries.UpdateSplitMemberPaymentStatus(c, tabmate.UpdateSplitMemberPaymentStatusParams{
+			SplitID:       split.ID,
+			UserID:        pgUserID,
+			PaymentStatus: "marked_sent",
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update payment status"})
+			return
+		}
+
+		actorName, _ := c.Get("username")
+		activity.InsertEvent(c, queries, tabmate.InsertActivityEventParams{
+			EventType:  "payment_sent",
+			ActorID:    pgUserID,
+			ActorName:  actorName.(string),
+			EntityType: "split",
+			EntityCode: code,
+			EntityName: split.Name,
+		})
+
+		c.JSON(http.StatusOK, gin.H{"message": "Payment marked as sent"})
+	}
+}
+
+func ConfirmPayment(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		code := c.Param("code")
+		requesterID, _ := c.Get("user_id")
+		pgRequesterID := requesterID.(pgtype.UUID)
+
+		targetUUID, err := uuid.Parse(c.Param("userId"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+			return
+		}
+		pgTargetID := pgtype.UUID{Bytes: targetUUID, Valid: true}
+
+		split, err := queries.GetSplitByCode(c, code)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Split not found"})
+			return
+		}
+
+		hostMember, err := queries.GetSplitMember(c, tabmate.GetSplitMemberParams{
+			SplitID: split.ID,
+			UserID:  pgRequesterID,
+		})
+		if err != nil || hostMember.Role != "host" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only the split host can confirm payments"})
+			return
+		}
+
+		_, err = queries.ConfirmSplitMemberPayment(c, tabmate.ConfirmSplitMemberPaymentParams{
+			SplitID: split.ID,
+			UserID:  pgTargetID,
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to confirm payment"})
+			return
+		}
+
+		// Check if everyone is settled
+		count, err := queries.CountUnsettledSplitMembers(c, split.ID)
+		if err == nil && count == 0 {
+			queries.UpdateSplitStatus(c, tabmate.UpdateSplitStatusParams{
+				ID:     split.ID,
+				Status: "settled",
+			})
+		}
+
+		actorName, _ := c.Get("username")
+		activity.InsertEvent(c, queries, tabmate.InsertActivityEventParams{
+			EventType:  "payment_confirmed",
+			ActorID:    pgRequesterID,
+			ActorName:  actorName.(string),
+			EntityType: "split",
+			EntityCode: code,
+			EntityName: split.Name,
+		})
+
+		c.JSON(http.StatusOK, gin.H{"message": "Payment confirmed"})
+	}
+}
+
+type UpdatePaymentInstructionsRequest struct {
+	Instructions string `json:"instructions"`
+}
+
+func UpdatePaymentInstructions(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		code := c.Param("code")
+		requesterID, _ := c.Get("user_id")
+		pgRequesterID := requesterID.(pgtype.UUID)
+
+		var req UpdatePaymentInstructionsRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		split, err := queries.GetSplitByCode(c, code)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Split not found"})
+			return
+		}
+
+		hostMember, err := queries.GetSplitMember(c, tabmate.GetSplitMemberParams{
+			SplitID: split.ID,
+			UserID:  pgRequesterID,
+		})
+		if err != nil || hostMember.Role != "host" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only the split host can set payment instructions"})
+			return
+		}
+
+		_, err = queries.UpdateSplitPaymentInstructions(c, tabmate.UpdateSplitPaymentInstructionsParams{
+			ID:                  split.ID,
+			PaymentInstructions: pgtype.Text{String: req.Instructions, Valid: req.Instructions != ""},
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update payment instructions"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Payment instructions updated"})
 	}
 }
 

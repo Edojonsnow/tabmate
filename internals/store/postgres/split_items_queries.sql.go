@@ -326,7 +326,7 @@ SET
     split_type    = 'receipt',
     updated_at    = NOW()
 WHERE id = $1
-RETURNING id, created_by, split_code, name, description, total_amount, status, created_at, updated_at, settled_at, tax_amount, tip_amount, tip_is_shared, split_type
+RETURNING id, created_by, split_code, name, description, total_amount, status, created_at, updated_at, settled_at, tax_amount, tip_amount, tip_is_shared, split_type, payment_instructions
 `
 
 type UpdateSplitReceiptDetailsParams struct {
@@ -361,12 +361,13 @@ func (q *Queries) UpdateSplitReceiptDetails(ctx context.Context, arg UpdateSplit
 		&i.TipAmount,
 		&i.TipIsShared,
 		&i.SplitType,
+		&i.PaymentInstructions,
 	)
 	return i, err
 }
 
 const updateSplitTotalAmount = `-- name: UpdateSplitTotalAmount :one
-UPDATE splits SET total_amount = $2, updated_at = NOW() WHERE id = $1 RETURNING id, created_by, split_code, name, description, total_amount, status, created_at, updated_at, settled_at, tax_amount, tip_amount, tip_is_shared, split_type
+UPDATE splits SET total_amount = $2, updated_at = NOW() WHERE id = $1 RETURNING id, created_by, split_code, name, description, total_amount, status, created_at, updated_at, settled_at, tax_amount, tip_amount, tip_is_shared, split_type, payment_instructions
 `
 
 type UpdateSplitTotalAmountParams struct {
@@ -392,6 +393,7 @@ func (q *Queries) UpdateSplitTotalAmount(ctx context.Context, arg UpdateSplitTot
 		&i.TipAmount,
 		&i.TipIsShared,
 		&i.SplitType,
+		&i.PaymentInstructions,
 	)
 	return i, err
 }

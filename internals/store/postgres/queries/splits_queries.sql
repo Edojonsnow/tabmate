@@ -29,3 +29,9 @@ DELETE FROM splits WHERE split_code = $1;
 
 -- name: CountOpenSplits :one
 SELECT COUNT(*) FROM splits WHERE status = 'open';
+
+-- name: UpdateSplitPaymentInstructions :one
+UPDATE splits
+SET payment_instructions = $2, updated_at = NOW()
+WHERE id = $1
+RETURNING *;

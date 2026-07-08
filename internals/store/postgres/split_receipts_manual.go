@@ -6,18 +6,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type SplitReceipts struct {
-	ID               pgtype.UUID        `json:"id"`
-	SplitID          pgtype.UUID        `json:"split_id"`
-	ObjectKey        string             `json:"object_key"`
-	ImageUrl         string             `json:"image_url"`
-	MediaType        string             `json:"media_type"`
-	OriginalFilename pgtype.Text        `json:"original_filename"`
-	CreatedBy        pgtype.UUID        `json:"created_by"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-}
-
 type UpsertSplitReceiptParams struct {
 	SplitID          pgtype.UUID `json:"split_id"`
 	ObjectKey        string      `json:"object_key"`
