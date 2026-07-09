@@ -18,8 +18,8 @@ UPDATE splits SET total_amount = $2, updated_at = NOW() WHERE id = $1 RETURNING 
 -- name: UpdateSplitStatus :one
 UPDATE splits
 SET
-    status = $2,
-    settled_at = CASE WHEN $2 = 'settled' THEN NOW() ELSE settled_at END,
+    status = $2::text,
+    settled_at = CASE WHEN $2::text = 'settled' THEN NOW() ELSE settled_at END,
     updated_at = NOW()
 WHERE id = $1
 RETURNING *;

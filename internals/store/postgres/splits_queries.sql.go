@@ -240,8 +240,8 @@ func (q *Queries) UpdateSplitPaymentInstructions(ctx context.Context, arg Update
 const updateSplitStatus = `-- name: UpdateSplitStatus :one
 UPDATE splits
 SET
-    status = $2,
-    settled_at = CASE WHEN $2 = 'settled' THEN NOW() ELSE settled_at END,
+    status = $2::text,
+    settled_at = CASE WHEN $2::text = 'settled' THEN NOW() ELSE settled_at END,
     updated_at = NOW()
 WHERE id = $1
 RETURNING id, created_by, split_code, name, description, total_amount, status, created_at, updated_at, settled_at, tax_amount, tip_amount, tip_is_shared, split_type, payment_instructions

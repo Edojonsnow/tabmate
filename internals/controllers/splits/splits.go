@@ -349,6 +349,55 @@ func GetSplitBreakdown(queries tabmate.Querier) gin.HandlerFunc {
 	}
 }
 
+func CloseSplit(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		code := c.Param("code")
+		requesterID, _ := c.Get("user_id")
+		pgRequesterID := requesterID.(pgtype.UUID)
+
+		split, err := queries.GetSplitByCode(c, code)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Split not found"})
+			return
+		}
+
+		if split.Status == "settled" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Split is already closed"})
+			return
+		}
+
+		hostMember, err := queries.GetSplitMember(c, tabmate.GetSplitMemberParams{
+			SplitID: split.ID,
+			UserID:  pgRequesterID,
+		})
+		if err != nil || hostMember.Role != "host" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only the split host can close the split"})
+			return
+		}
+
+		if _, err := queries.UpdateSplitStatus(c, tabmate.UpdateSplitStatusParams{
+			ID:     split.ID,
+			Status: "settled",
+		}); err != nil {
+			log.Printf("Error closing split: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to close split"})
+			return
+		}
+
+		actorName, _ := c.Get("username")
+		activity.InsertEvent(c, queries, tabmate.InsertActivityEventParams{
+			EventType:  "split_closed",
+			ActorID:    pgRequesterID,
+			ActorName:  actorName.(string),
+			EntityType: "split",
+			EntityCode: code,
+			EntityName: split.Name,
+		})
+
+		c.JSON(http.StatusOK, gin.H{"message": "Split closed"})
+	}
+}
+
 func MarkAsSettled(queries tabmate.Querier) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		code := c.Param("code")
