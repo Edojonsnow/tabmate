@@ -58,6 +58,7 @@ type Querier interface {
 	GetSplitItem(ctx context.Context, id pgtype.UUID) (SplitItems, error)
 	GetSplitItemClaim(ctx context.Context, arg GetSplitItemClaimParams) (SplitItemClaims, error)
 	GetSplitMember(ctx context.Context, arg GetSplitMemberParams) (SplitMembers, error)
+	GetSplitReceiptBySplitID(ctx context.Context, splitID pgtype.UUID) (SplitReceipts, error)
 	GetTableByCode(ctx context.Context, tableCode string) (Tables, error)
 	GetTableByID(ctx context.Context, id pgtype.UUID) (Tables, error)
 	// Retrieves a specific membership record by table_id and user_id.
@@ -70,7 +71,7 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id pgtype.UUID) (Users, error)
 	IncrementURLExtractCount(ctx context.Context, tableCode string) (int32, error)
 	InsertActivityEvent(ctx context.Context, arg InsertActivityEventParams) (ActivityEvents, error)
-	// Returns the 50 most recent events from all tables and splits the user belongs to.
+	// Returns the 50 most recent events from all open tables and splits the user belongs to.
 	ListActivityEventsForUser(ctx context.Context, userID pgtype.UUID) ([]ActivityEvents, error)
 	ListAllUsers(ctx context.Context) ([]Users, error)
 	ListClaimsForItem(ctx context.Context, splitItemID pgtype.UUID) ([]ListClaimsForItemRow, error)
@@ -142,7 +143,6 @@ type Querier interface {
 	UpdateUserProfilePictureURL(ctx context.Context, arg UpdateUserProfilePictureURLParams) (Users, error)
 	UpdateUserPushToken(ctx context.Context, arg UpdateUserPushTokenParams) error
 	UpsertSplitReceipt(ctx context.Context, arg UpsertSplitReceiptParams) (SplitReceipts, error)
-	GetSplitReceiptBySplitID(ctx context.Context, splitID pgtype.UUID) (SplitReceipts, error)
 }
 
 var _ Querier = (*Queries)(nil)

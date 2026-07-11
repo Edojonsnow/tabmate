@@ -195,9 +195,14 @@ func CreateSplitFromReceipt(queries tabmate.Querier) gin.HandlerFunc {
 		}
 
 		if receiptUpload != nil {
-			if _, err := storeSplitReceipt(c, queries, split.ID, splitCode, pgUserID, receiptUpload); err != nil {
-				log.Printf("Error storing receipt image: %v", err)
+			stored, err := storeSplitReceipt(c, queries, split.ID, splitCode, pgUserID, receiptUpload)
+			if err != nil {
+				log.Printf("[receipt] storeSplitReceipt failed for split %s: %v", splitCode, err)
+			} else {
+				log.Printf("[receipt] stored receipt for split %s: url=%s", splitCode, stored.ImageUrl)
 			}
+		} else {
+			log.Printf("[receipt] no receipt upload found in request for split %s", splitCode)
 		}
 
 		// Add creator as host

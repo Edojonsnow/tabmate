@@ -45,12 +45,11 @@ Return ONLY valid JSON with no markdown formatting, no code blocks, no explanati
 Use exactly this structure:
 {"items":[{"name":"Item Name","price":12.99,"quantity":1}],"tax":1.50,"tip":0}
 Rules:
-- Each item must have a name, a unit price (not the line total), and a quantity
-- If quantity is not shown, default to 1
-- If price is unclear, use 0
-- "tax" is the tax/VAT/service charge total (not per-item). Use 0 if not present
+- Each item's "price" must be the TOTAL for that line (unit price × quantity). Always set "quantity" to 1.
+- If the line total is unclear, use 0
+- "tax" is the tax/VAT/service charge shown on the receipt (a single total, not per-item). Use 0 if not present
 - "tip" is the gratuity total. Use 0 if not present
-- Do NOT include subtotal, total, tax, or tip as items — only food/drink line items
+- Do NOT include subtotal, total, tax, or tip as line items — only product/food/drink line items
 - Do NOT include any explanatory text outside the JSON`
 
 	reqBody := geminiRequest{

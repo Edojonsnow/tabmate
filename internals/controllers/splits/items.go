@@ -390,6 +390,21 @@ func MergeSplitItems(queries tabmate.Querier) gin.HandlerFunc {
 	}
 }
 
+// recalculateAllMembersFromClaims re-runs recalculateMemberAmount for every member of a receipt split.
+// Call this after join/leave so tax/tip shares update for all members without losing claim-based amounts.
+func recalculateAllMembersFromClaims(c *gin.Context, queries tabmate.Querier, split tabmate.Splits) {
+	if split.SplitType != "receipt" {
+		return
+	}
+	members, err := queries.ListSplitMembersBySplitID(c, split.ID)
+	if err != nil {
+		return
+	}
+	for _, m := range members {
+		recalculateMemberAmount(c, queries, split, m.UserID)
+	}
+}
+
 // recalculateMemberAmount recomputes a member's amount_owed for a receipt-based split.
 // amount = sum(claimed items) + (tax / member_count) + (tip / member_count if shared)
 func recalculateMemberAmount(c *gin.Context, queries tabmate.Querier, split tabmate.Splits, userID pgtype.UUID) {

@@ -67,17 +67,19 @@ WHERE e.entity_code IN (
     FROM tables t
     JOIN table_members tm ON tm.table_id = t.id
     WHERE tm.user_id = $1
+    AND t.status != 'closed'
     UNION
     SELECT s.split_code
     FROM splits s
     JOIN split_members sm ON sm.split_id = s.id
     WHERE sm.user_id = $1
+    AND s.status != 'settled'
 )
 ORDER BY e.created_at DESC
 LIMIT 50
 `
 
-// Returns the 50 most recent events from all tables and splits the user belongs to.
+// Returns the 50 most recent events from all open tables and splits the user belongs to.
 func (q *Queries) ListActivityEventsForUser(ctx context.Context, userID pgtype.UUID) ([]ActivityEvents, error) {
 	rows, err := q.db.Query(ctx, listActivityEventsForUser, userID)
 	if err != nil {

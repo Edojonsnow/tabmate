@@ -137,6 +137,8 @@ func JoinSplit(queries tabmate.Querier) gin.HandlerFunc {
 
 		// Recalculate split for all members
 		queries.RecalculateSplitForAllMembers(c, split.ID)
+		// For receipt splits, restore claim-based amounts (equal recalc above overwrites them)
+		recalculateAllMembersFromClaims(c, queries, split)
 
 		actorName, _ := c.Get("username")
 		activity.InsertEvent(c, queries, tabmate.InsertActivityEventParams{
@@ -255,6 +257,7 @@ func LeaveSplit(queries tabmate.Querier) gin.HandlerFunc {
 
 		// Recalculate for remaining members
 		queries.RecalculateSplitForAllMembers(c, split.ID)
+		recalculateAllMembersFromClaims(c, queries, split)
 
 		c.JSON(http.StatusOK, gin.H{"message": "Successfully left the split"})
 	}
@@ -538,6 +541,7 @@ func AddMemberToSplit(queries tabmate.Querier) gin.HandlerFunc {
 
 		// Recalculate split for everyone
 		queries.RecalculateSplitForAllMembers(c, split.ID)
+		recalculateAllMembersFromClaims(c, queries, split)
 
 		members, _ := queries.ListSplitMembersBySplitID(c, split.ID)
 		totalAmountFloat, _ := split.TotalAmount.Float64Value()
@@ -630,6 +634,7 @@ func RemoveMemberFromSplit(queries tabmate.Querier) gin.HandlerFunc {
 
 		// Recalculate split for remaining members
 		queries.RecalculateSplitForAllMembers(c, split.ID)
+		recalculateAllMembersFromClaims(c, queries, split)
 
 		members, _ := queries.ListSplitMembersBySplitID(c, split.ID)
 		totalAmountFloat, _ := split.TotalAmount.Float64Value()
@@ -793,6 +798,37 @@ func UpdatePaymentInstructions(queries tabmate.Querier) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Payment instructions updated"})
+	}
+}
+
+func DeleteSplit(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		code := c.Param("code")
+		requesterID, _ := c.Get("user_id")
+		pgRequesterID := requesterID.(pgtype.UUID)
+
+		split, err := queries.GetSplitByCode(c, code)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Split not found"})
+			return
+		}
+
+		hostMember, err := queries.GetSplitMember(c, tabmate.GetSplitMemberParams{
+			SplitID: split.ID,
+			UserID:  pgRequesterID,
+		})
+		if err != nil || hostMember.Role != "host" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only the split host can delete the split"})
+			return
+		}
+
+		if err := queries.DeleteSplitByCode(c, code); err != nil {
+			log.Printf("Error deleting split %s: %v", code, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete split"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Split deleted"})
 	}
 }
 

@@ -240,20 +240,20 @@ func (q *Queries) UpdateSplitPaymentInstructions(ctx context.Context, arg Update
 const updateSplitStatus = `-- name: UpdateSplitStatus :one
 UPDATE splits
 SET
-    status = $2::text,
-    settled_at = CASE WHEN $2::text = 'settled' THEN NOW() ELSE settled_at END,
+    status = $1::text,
+    settled_at = CASE WHEN $1::text = 'settled' THEN NOW() ELSE settled_at END,
     updated_at = NOW()
-WHERE id = $1
+WHERE id = $2
 RETURNING id, created_by, split_code, name, description, total_amount, status, created_at, updated_at, settled_at, tax_amount, tip_amount, tip_is_shared, split_type, payment_instructions
 `
 
 type UpdateSplitStatusParams struct {
-	ID     pgtype.UUID `json:"id"`
 	Status string      `json:"status"`
+	ID     pgtype.UUID `json:"id"`
 }
 
 func (q *Queries) UpdateSplitStatus(ctx context.Context, arg UpdateSplitStatusParams) (Splits, error) {
-	row := q.db.QueryRow(ctx, updateSplitStatus, arg.ID, arg.Status)
+	row := q.db.QueryRow(ctx, updateSplitStatus, arg.Status, arg.ID)
 	var i Splits
 	err := row.Scan(
 		&i.ID,
