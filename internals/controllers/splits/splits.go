@@ -434,15 +434,6 @@ func MarkAsSettled(queries tabmate.Querier) gin.HandlerFunc {
 			return
 		}
 
-		// Check if everyone is settled
-		count, err := queries.CountUnsettledSplitMembers(c, split.ID)
-		if err == nil && count == 0 {
-			queries.UpdateSplitStatus(c, tabmate.UpdateSplitStatusParams{
-				ID:     split.ID,
-				Status: "settled",
-			})
-		}
-
 		actorName, _ := c.Get("username")
 		activity.InsertEvent(c, queries, tabmate.InsertActivityEventParams{
 			EventType:  "payment_confirmed",
@@ -452,6 +443,23 @@ func MarkAsSettled(queries tabmate.Querier) gin.HandlerFunc {
 			EntityCode: code,
 			EntityName: split.Name,
 		})
+
+		// Check if everyone is settled; if so, mark split as settled too
+		count, err := queries.CountUnsettledSplitMembers(c, split.ID)
+		if err == nil && count == 0 {
+			queries.UpdateSplitStatus(c, tabmate.UpdateSplitStatusParams{
+				ID:     split.ID,
+				Status: "settled",
+			})
+			activity.InsertEvent(c, queries, tabmate.InsertActivityEventParams{
+				EventType:  "split_settled",
+				ActorID:    pgUserID,
+				ActorName:  actorName.(string),
+				EntityType: "split",
+				EntityCode: code,
+				EntityName: split.Name,
+			})
+		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Marked as settled"})
 	}

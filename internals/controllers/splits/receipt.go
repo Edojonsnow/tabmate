@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"net/http"
 	"strings"
+	activity "tabmate/internals/controllers/activity"
 	"tabmate/internals/menu"
 	"tabmate/internals/storage"
 	tabmate "tabmate/internals/store/postgres"
@@ -246,6 +247,16 @@ func CreateSplitFromReceipt(queries tabmate.Querier) gin.HandlerFunc {
 				RemainingQty: int(si.RemainingQty),
 			})
 		}
+
+		actorName, _ := c.Get("username")
+		activity.InsertEvent(c, queries, tabmate.InsertActivityEventParams{
+			EventType:  "receipt_scanned",
+			ActorID:    pgUserID,
+			ActorName:  actorName.(string),
+			EntityType: "split",
+			EntityCode: splitCode,
+			EntityName: req.Splitname,
+		})
 
 		c.JSON(http.StatusOK, gin.H{
 			"code":          splitCode,

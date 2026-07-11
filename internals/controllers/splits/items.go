@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	activity "tabmate/internals/controllers/activity"
 	tabmate "tabmate/internals/store/postgres"
 
 	"github.com/gin-gonic/gin"
@@ -163,6 +164,17 @@ func ClaimItem(queries tabmate.Querier) gin.HandlerFunc {
 		// Recalculate this member's amount_owed
 		recalculateMemberAmount(c, queries, split, pgUserID)
 
+		actorName, _ := c.Get("username")
+		activity.InsertEvent(c, queries, tabmate.InsertActivityEventParams{
+			EventType:  "item_claimed",
+			ActorID:    pgUserID,
+			ActorName:  actorName.(string),
+			EntityType: "split",
+			EntityCode: code,
+			EntityName: split.Name,
+			Metadata:   []byte(`{"item_name":"` + item.Name + `"}`),
+		})
+
 		c.JSON(http.StatusOK, gin.H{
 			"message":       "Item claimed",
 			"remaining_qty": newRemaining,
@@ -224,6 +236,16 @@ func UnclaimItem(queries tabmate.Querier) gin.HandlerFunc {
 
 		// Recalculate this member's amount_owed
 		recalculateMemberAmount(c, queries, split, pgUserID)
+
+		actorName, _ := c.Get("username")
+		activity.InsertEvent(c, queries, tabmate.InsertActivityEventParams{
+			EventType:  "item_unclaimed",
+			ActorID:    pgUserID,
+			ActorName:  actorName.(string),
+			EntityType: "split",
+			EntityCode: code,
+			EntityName: split.Name,
+		})
 
 		c.JSON(http.StatusOK, gin.H{"message": "Claim removed"})
 	}
