@@ -53,6 +53,7 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 		authorized.GET("/api/users/search", usercontroller.SearchUsers(queries))
 		authorized.PATCH("/api/user/push-token", usercontroller.UpdatePushToken(queries))
 		authorized.PATCH("/api/user/bank-details", usercontroller.UpdateBankDetails(queries))
+		authorized.PATCH("/api/user/profile", usercontroller.UpdateProfile(queries))
 
 		// ── Tables ────────────────────────────────────────────────────────────
 		authorized.POST("/api/create-table", tablecontroller.CreateTable(queries))

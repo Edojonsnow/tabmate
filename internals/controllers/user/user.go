@@ -142,6 +142,38 @@ func GetUser(queries tabmate.Querier) gin.HandlerFunc {
 	}
 }
 
+type UpdateProfileRequest struct {
+	Name string `json:"name" binding:"required"`
+}
+
+func UpdateProfile(queries tabmate.Querier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, _ := c.Get("user_id")
+		pgUserID := userID.(pgtype.UUID)
+
+		var req UpdateProfileRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
+			return
+		}
+
+		updated, err := queries.UpdateUserName(c, tabmate.UpdateUserNameParams{
+			Name: pgtype.Text{String: strings.TrimSpace(req.Name), Valid: true},
+			ID:   pgUserID,
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"id":    uuid.UUID(updated.ID.Bytes).String(),
+			"name":  updated.Name.String,
+			"email": updated.Email,
+		})
+	}
+}
+
 type UpdateBankDetailsRequest struct {
 	BankName      string `json:"bank_name" binding:"required"`
 	AccountName   string `json:"account_name" binding:"required"`
