@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"net/http"
+	"time"
+
 	activitycontroller "tabmate/internals/controllers/activity"
 	authcontroller "tabmate/internals/controllers/auth"
 	menucontroller "tabmate/internals/controllers/menu"
@@ -23,6 +25,8 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 	// Load HTML templates
 	router.LoadHTMLGlob("templates/*")
 
+	router.Use(middleware.RateLimitByIP("global", 300, time.Minute, 600))
+
 	// Add custom logging middleware (gin.Default() already includes gin.Logger())
 	router.Use(func(c *gin.Context) {
 		log.Printf("Request: %s %s", c.Request.Method, c.Request.URL.Path)
@@ -34,6 +38,7 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 	// ─── Protected routes ─────────────────────────────────────────────────────
 	authorized := router.Group("/")
 	authorized.Use(middleware.AuthMiddleware(queries))
+	authorized.Use(middleware.RateLimitByUser("authorized", 180, time.Minute, 240))
 	{
 		authorized.GET("/profile", authcontroller.HandleProfile)
 
@@ -71,9 +76,9 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 		authorized.POST("/api/tables/:code/sync", tablecontroller.SyncTableItems(pool))
 		authorized.PATCH("/api/tables/:code", tablecontroller.UpdateTableVat(queries))
 		authorized.PATCH("/api/tables/:code/close", tablecontroller.CloseTable(queries))
-		authorized.POST("/api/tables/:code/payment-reminder", tablecontroller.SendTablePaymentReminder(queries))
-		authorized.POST("/api/tables/:code/scan-menu", menucontroller.ScanMenu(queries))
-		authorized.POST("/api/tables/:code/extract-menu-url", menucontroller.ExtractMenuFromURL(queries))
+		authorized.POST("/api/tables/:code/payment-reminder", middleware.RateLimitByUser("table-payment-reminder", 5, time.Hour, 5), tablecontroller.SendTablePaymentReminder(queries))
+		authorized.POST("/api/tables/:code/scan-menu", middleware.RateLimitByUser("scan-menu", 10, time.Hour, 10), menucontroller.ScanMenu(queries))
+		authorized.POST("/api/tables/:code/extract-menu-url", middleware.RateLimitByUser("extract-menu-url", 10, time.Hour, 10), menucontroller.ExtractMenuFromURL(queries))
 		authorized.GET("/api/tables/:code/menu", menucontroller.GetScannedMenu(queries))
 		authorized.PUT("/api/tables/:code/menu", menucontroller.UpdateScannedMenu(queries))
 		authorized.DELETE("/api/tables/:code/menu", menucontroller.DeleteScannedMenu(queries))
@@ -97,7 +102,7 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 		authorized.POST("/api/splits/:code/mark-payment-sent", splitcontroller.MarkPaymentSent(queries))
 		authorized.POST("/api/splits/:code/members/:userId/confirm-payment", splitcontroller.ConfirmPayment(queries))
 		authorized.PATCH("/api/splits/:code/payment-instructions", splitcontroller.UpdatePaymentInstructions(queries))
-		authorized.POST("/api/splits/:code/remind", splitcontroller.RemindMembers(queries))
+		authorized.POST("/api/splits/:code/remind", middleware.RateLimitByUser("split-remind", 5, time.Hour, 5), splitcontroller.RemindMembers(queries))
 		authorized.GET("/api/get-user-splits", splitcontroller.ListSplitsForUser(queries))
 
 		// ── Activity Feed ─────────────────────────────────────────────────────
@@ -111,7 +116,7 @@ func setupRouter(pool *pgxpool.Pool, queries tabmate.Querier) *gin.Engine {
 	}
 
 	// ─── WebSocket (token via query param) ────────────────────────────────────
-	router.GET("/ws/table/:code", func(c *gin.Context) {
+	router.GET("/ws/table/:code", middleware.RateLimitByIP("ws-table", 30, time.Minute, 30), func(c *gin.Context) {
 		code := c.Param("code")
 		token := c.Query("token")
 
